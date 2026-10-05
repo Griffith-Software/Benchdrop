@@ -1,0 +1,109 @@
+{
+  "name": "benchdrop",
+  "version": "4.3.3",
+  "description": "Drop in a project - a zip, a folder, a single page or script - and Benchdrop installs what it needs, runs it, and shows it in its own window.",
+  "private": true,
+  "main": "main.js",
+  "author": {
+    "name": "Griffith Software",
+    "email": "hello@griffith.software",
+    "url": "https://griffith.software"
+  },
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "node build/make-mcpb.js && electron-builder --win nsis",
+    "dist:dir": "node build/make-mcpb.js && electron-builder --win dir",
+    "test": "node tests/unit.test.js && npm run test:electron",
+    "test:unit": "node tests/unit.test.js",
+    "test:electron": "electron tests/electron.test.js",
+    "build:wood": "python3 build/make-wood.py",
+    "build:icon": "electron build/make-icon.js",
+    "build:mcpb": "node build/make-mcpb.js",
+    "release": "node build/make-release.js"
+  },
+  "devDependencies": {
+    "electron": "^34.5.8",
+    "electron-builder": "^24.13.3",
+    "prismjs": "^1.30.0",
+    "npm": "^10.9.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0",
+    "tree-kill": "^1.2.2"
+  },
+  "build": {
+    "appId": "software.griffith.benchdrop",
+    "productName": "Benchdrop",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/npm",
+        "to": "npm-cli",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "native",
+        "to": "native",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "mcp",
+        "to": "mcp",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "sign": "packaging/version-resource.js",
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Benchdrop",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "include": "build/installer.nsh",
+      "license": "LICENSE",
+      "artifactName": "${productName}_v${version}_win-x64_setup.${ext}",
+      "uninstallDisplayName": "${productName}"
+    },
+    "copyright": "Copyright (c) 2026 Griffith.Software",
+    "buildNumber": "0"
+  },
+  "license": "MIT",
+  "homepage": "https://griffith.software/benchdrop.html"
+}

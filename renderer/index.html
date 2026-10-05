@@ -1,0 +1,445 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Griffith.Software — https://griffith.software -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>Benchdrop</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div id="brand">
+      <svg class="mark" viewBox="0 0 44 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g class="mark-arrow">
+          <rect x="19.4" y="4" width="5.2" height="17" rx="2.6"/>
+          <path d="M13 17.5 L22 27 L31 17.5 Z"/>
+        </g>
+        <rect class="mark-top" x="5" y="28.5" width="34" height="4.6" rx="2.3"/>
+        <rect class="mark-leg" x="11.5" y="33.1" width="4.2" height="6.4" rx="2.1"/>
+        <rect class="mark-leg" x="28.3" y="33.1" width="4.2" height="6.4" rx="2.1"/>
+      </svg>
+      <span>Benchdrop</span>
+    </div>
+
+    <div id="status-pill" class="idle">
+      <span class="spinner" aria-hidden="true">
+        <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+          <g class="sp-block">
+            <rect x="7.9" y="0.8" width="2.2" height="6.6" rx="1.1" />
+            <path d="M5.1 6 L9 10.1 L12.9 6 Z" />
+          </g>
+          <rect class="sp-top" x="1.5" y="11.2" width="15" height="2.2" rx="1.1" />
+          <rect class="sp-leg" x="3.6" y="13.4" width="1.8" height="3.1" rx="0.8" />
+          <rect class="sp-leg" x="12.6" y="13.4" width="1.8" height="3.1" rx="0.8" />
+        </svg>
+      </span>
+      <span class="status-dot"></span>
+      <span id="status-label">Idle</span>
+    </div>
+
+    <div id="run-controls" class="hidden">
+      <span id="run-url"></span>
+      <button id="btn-view-toggle" class="hidden" title="Switch between the running app and its source">Code</button>
+      <button id="btn-reload" title="Reload">⟳</button>
+      <button id="btn-phone" title="Open this on your phone over WiFi">Phone</button>
+      <button id="btn-live-reload" title="Reload the page automatically when project files change">⟳ Live</button>
+      <button id="btn-clear-cache" title="Clear cached files, cookies, and local storage, then reload">Clear cache</button>
+      <button id="btn-autotest" title="Let Benchdrop click through the app and report anything that breaks">Autotest</button>
+      <div id="capture-wrap">
+        <button id="btn-capture" title="Take a screenshot of the app">📷 Capture</button>
+        <div id="capture-menu" class="hidden">
+          <button class="capture-opt" data-mode="viewport">
+            <strong>Visible area</strong><span class="muted">What's on screen right now</span>
+          </button>
+          <button class="capture-opt" data-mode="full">
+            <strong>Whole page</strong><span class="muted">Includes everything you'd scroll to see</span>
+          </button>
+          <button class="capture-opt" data-mode="region">
+            <strong>Select a region</strong><span class="muted">Drag a box over the part you want</span>
+          </button>
+          <div class="capture-sep"></div>
+          <button class="capture-opt" data-mode="folder">
+            <strong>Open screenshots folder</strong><span class="muted">See everything captured so far</span>
+          </button>
+        </div>
+      </div>
+      <button id="btn-open-browser" title="Open in default browser">↗</button>
+      <button id="btn-devtools" title="Toggle app devtools">{ }</button>
+      <button id="btn-stop" class="danger" title="Stop everything">■ Stop</button>
+    </div>
+
+    <div id="global-controls">
+      <button id="btn-folder" class="hidden" title="Open the project folder on disk">Folder</button>
+      <button id="btn-reset" class="hidden" title="Delete this project's folder and start over">Reset project</button>
+      <button id="btn-clean-reinstall" class="hidden" title="Delete node_modules + lockfile and reinstall">Clean reinstall</button>
+      <button id="btn-toggle-log">Log</button>
+      <button id="btn-new" title="Go back to the drop screen to open a different project">Load another</button>
+    </div>
+  </header>
+
+  <div id="workspace">
+    <aside id="logpanel">
+      <div id="command-row">
+        <input id="command-line" type="text" placeholder="Run a command in the project folder, e.g. npx @convex-dev/auth" autocomplete="off" />
+        <button id="btn-run-command"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 3.2v9.6a.6.6 0 0 0 .92.5l7.3-4.8a.6.6 0 0 0 0-1L5.42 2.7a.6.6 0 0 0-.92.5z"/></svg>Run</button>
+      </div>
+
+      <div id="log-toolbar">
+        <span id="log-title">Log</span>
+        <button id="btn-trace" title="Log what the app itself is doing: clicks, console output, network requests and errors">Trace</button>
+        <button id="btn-copy-log" title="Copy the whole log to the clipboard"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5.5" y="5.5" width="8" height="9" rx="1.4"/><path d="M10.5 5.5v-2a1.4 1.4 0 0 0-1.4-1.4H3.9A1.4 1.4 0 0 0 2.5 3.5v5.6a1.4 1.4 0 0 0 1.4 1.4h1.6"/></svg>Copy log</button>
+        <button id="btn-clear-log" title="Clear the log view"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.6 4.2h10.8M6 4.2V2.9a.8.8 0 0 1 .8-.8h2.4a.8.8 0 0 1 .8.8v1.3M4 4.2l.6 8.6a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.6-8.6"/></svg>Clear</button>
+      </div>
+
+      <div id="log" role="log"></div>
+
+      <div id="input-row">
+        <select id="proc-target" title="Which running process gets this input"></select>
+        <input id="input-line" type="text" placeholder="Type a reply for a running process, then press Enter" autocomplete="off" />
+        <button id="btn-send"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14.2 1.8 7.4 8.6M14.2 1.8 9.9 14.2 7.4 8.6 1.8 6.1z"/></svg>Send</button>
+      </div>
+    </aside>
+
+    <div id="divider" title="Drag to resize"></div>
+
+    <main>
+      <section id="dropzone">
+        <div id="dropzone-inner">
+          <div id="dropzone-icon">
+            <svg viewBox="0 0 88 76" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M44 6 V38" stroke="currentColor" stroke-width="7" stroke-linecap="round" fill="none"/>
+              <path d="M30 30 L44 45 L58 30" stroke="currentColor" stroke-width="7"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              <rect x="12" y="52" width="64" height="6.5" rx="3.2" fill="currentColor"/>
+              <rect x="20" y="58.5" width="6" height="13" rx="2.6" fill="currentColor" opacity=".75"/>
+              <rect x="62" y="58.5" width="6" height="13" rx="2.6" fill="currentColor" opacity=".75"/>
+            </svg>
+          </div>
+          <p class="headline">Drop a project here</p>
+          <p class="muted small drop-types">a <strong>.zip</strong> &nbsp;·&nbsp; a <strong>folder</strong> &nbsp;·&nbsp; a program (<strong>.exe</strong>) &nbsp;·&nbsp; a single <strong>.html</strong>, <strong>.py</strong> or <strong>.md</strong> file</p>
+          <p class="muted">or</p>
+          <div class="choose-row">
+            <button id="btn-choose"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 1.5H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M9 1.5V6h4.5"/></svg>Choose a file</button>
+            <button id="btn-choose-folder"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.8 12.5v-9A1 1 0 0 1 2.8 2.5h3.2l1.6 2h5.6a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z"/></svg>Choose a folder</button>
+          </div>
+          <div class="url-row">
+            <input id="url-input" type="text" placeholder="or paste a GitHub link" autocomplete="off" />
+            <button id="btn-load-url">Get</button>
+          </div>
+          <p class="muted small">Node, static sites, Python, PHP, Go, Rust, Ruby, .NET, Java and Windows programs all work.</p>
+        </div>
+
+        <div id="recents" class="hidden">
+          <div id="recents-head">
+            <span>Recent</span>
+          </div>
+          <div id="recents-list"></div>
+        </div>
+      </section>
+
+      <section id="script-picker" class="hidden">
+        <div id="script-picker-inner">
+          <h2 id="script-picker-title">Project detected</h2>
+          <p class="muted" id="script-picker-sub"></p>
+
+          <div id="setup-note" class="hidden"></div>
+
+          <div class="label-row">
+            <label>Scripts to run <span class="muted">(tick more than one to run them together)</span></label>
+            <button id="btn-select-all" class="link-btn" type="button">Select all</button>
+          </div>
+          <div id="script-list"></div>
+
+          <button id="btn-run" class="primary">Run it</button>
+        </div>
+      </section>
+
+      <div id="auth-banner" class="hidden">
+        <div>
+          <strong>This project wants you to sign in.</strong>
+          <p class="muted small" id="auth-banner-text"></p>
+        </div>
+        <div class="auth-actions">
+          <button id="btn-auth-open" class="primary">Open sign-in page</button>
+          <button id="btn-auth-dismiss">Dismiss</button>
+        </div>
+      </div>
+
+      <div id="suggest-banner" class="hidden">
+        <div>
+          <strong>This project needs a one-time setup command.</strong>
+          <p class="muted small" id="suggest-reason"></p>
+          <code id="suggest-command"></code>
+        </div>
+        <div class="auth-actions">
+          <button id="btn-suggest-run" class="primary">Run it</button>
+          <button id="btn-suggest-dismiss">Dismiss</button>
+        </div>
+      </div>
+
+      <div id="port-banner" class="hidden">
+        <div>
+          <strong id="port-title">Something is already using that port.</strong>
+          <p class="muted small" id="port-reason"></p>
+        </div>
+        <div class="auth-actions">
+          <button id="btn-port-free" class="primary">Free it and retry</button>
+          <button id="btn-port-dismiss">Dismiss</button>
+        </div>
+      </div>
+
+      <section id="mode-picker" class="hidden">
+        <div id="mode-picker-inner">
+          <h2>How do you want to run this?</h2>
+          <p class="muted" id="mode-sub"></p>
+          <div id="mode-options"></div>
+        </div>
+      </section>
+
+      <section id="native-picker" class="hidden">
+        <div id="native-picker-inner">
+          <h2 id="native-picker-title">Windows program detected</h2>
+          <p class="muted" id="native-picker-sub"></p>
+
+          <label for="native-exe">Program to run</label>
+          <select id="native-exe"></select>
+
+          <label for="native-args">Arguments <span class="muted">(optional)</span></label>
+          <input id="native-args" type="text" placeholder='e.g. --verbose "C:\path with spaces\file.txt"' autocomplete="off" />
+
+          <p class="muted small native-note">It runs from its own folder with your permissions, exactly as if you'd
+          double-clicked it. Benchdrop logs its output, watches its windows, files and network traffic, and stops it
+          when you press Stop.</p>
+
+          <button id="btn-run-native" class="primary">Run it</button>
+        </div>
+      </section>
+
+      <section id="runtime-picker" class="hidden">
+        <div id="runtime-inner">
+          <h2 id="runtime-title">Project detected</h2>
+          <p class="muted" id="runtime-sub"></p>
+
+          <div id="runtime-warning" class="hidden"></div>
+
+          <label>What would you like to run?</label>
+          <div id="runtime-list"></div>
+
+          <label for="runtime-args">Extra arguments <span class="muted">(optional)</span></label>
+          <input id="runtime-args" type="text" placeholder="passed to the command as typed" autocomplete="off" />
+
+          <button id="btn-run-runtime" class="primary">Run it</button>
+        </div>
+      </section>
+
+      <section id="python-picker" class="hidden">
+        <div id="python-picker-inner">
+          <h2>Python project detected</h2>
+          <p class="muted" id="python-sub"></p>
+
+          <div id="python-warning" class="hidden"></div>
+
+          <label for="python-entry">Script to run</label>
+          <select id="python-entry"></select>
+
+          <label for="python-args">Arguments <span class="muted">(optional)</span></label>
+          <input id="python-args" type="text" placeholder="e.g. transcripts/example.txt --json" autocomplete="off" />
+
+          <label id="python-req-row" class="checkbox-row hidden">
+            <input id="python-install-req" type="checkbox" checked />
+            <span>Install dependencies from requirements.txt first</span>
+          </label>
+
+          <button id="btn-run-python" class="primary">Run it</button>
+        </div>
+      </section>
+
+      <section id="no-ui-panel" class="hidden">
+        <div id="no-ui-inner">
+          <div id="no-ui-icon">⌘</div>
+          <h2 id="no-ui-title">No web UI detected</h2>
+          <p class="muted" id="no-ui-text"></p>
+          <p class="muted small" id="no-ui-contents"></p>
+          <p class="muted small">The project folder is loaded, so you can run commands against it
+          using the bar at the top of the log and read the output there.</p>
+        </div>
+      </section>
+
+      <webview id="appview" class="hidden" allowpopups partition="persist:benchdrop-app"></webview>
+      <div id="drag-shield" class="hidden"></div>
+
+      <div id="phone-panel" class="hidden">
+        <div id="phone-inner">
+          <button id="btn-phone-close" title="Close">✕</button>
+          <h2>Open on your phone</h2>
+          <p class="muted small">Make sure the phone is on the same WiFi network as this computer.</p>
+          <img id="phone-qr" alt="QR code for the preview address" />
+          <div id="phone-url"></div>
+          <div id="phone-note">
+            <strong>Your phone will warn that the connection isn't private.</strong>
+            <p class="muted small">That's expected — the certificate is created by Benchdrop on
+            this machine rather than bought from a certificate authority. Tap
+            <em>Advanced</em> and continue. HTTPS is what lets the page use
+            location, camera and other features that a plain http address can't.</p>
+          </div>
+          <div id="phone-alts" class="muted small"></div>
+        </div>
+      </div>
+
+      <section id="native-view" class="hidden">
+        <div id="native-bar">
+          <div id="native-id">
+            <strong id="native-name">Program</strong>
+            <span id="native-meta" class="muted small"></span>
+          </div>
+          <span id="native-state" class="native-state">Starting</span>
+          <div id="native-actions">
+            <button id="btn-native-front" title="Bring the program's own window to the front">Show window</button>
+            <button id="btn-native-dock" title="Put the program's real window inside this pane">Dock here</button>
+            <button id="btn-native-restart" title="Stop and start the program again">Restart</button>
+          </div>
+        </div>
+        <div id="native-stage">
+          <video id="native-mirror" class="hidden" autoplay muted playsinline></video>
+          <img id="native-still" class="hidden" alt="" />
+          <p id="native-hint" class="hidden">This is a live picture of the program. Click it to switch to the program's own window, or use <strong>Dock here</strong> to work with it inside Benchdrop.</p>
+          <div id="native-region" class="hidden"><div id="native-region-box" class="hidden"></div></div>
+          <div id="native-placeholder">
+            <p id="native-placeholder-title">Waiting for the program to open a window…</p>
+            <p id="native-placeholder-text" class="muted small">Its output appears in the log as it runs.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="code-view" class="hidden">
+        <div id="code-sidebar">
+          <div id="code-search-row">
+            <input id="code-search" type="text" placeholder="Filter files" autocomplete="off" />
+          </div>
+          <div id="code-files"></div>
+          <div id="code-count" class="muted small"></div>
+        </div>
+
+        <div id="code-main">
+          <div id="code-bar">
+            <span id="code-path">Choose a file</span>
+            <span id="code-dirty" class="hidden">unsaved</span>
+            <div id="code-actions">
+              <button id="btn-code-save" disabled title="Save this file (Ctrl+S)">Save</button>
+              <button id="btn-code-revert" disabled title="Undo changes since the last save">Revert</button>
+              <button id="btn-code-export" title="Save the whole project, with your edits, as a zip">Export…</button>
+            </div>
+          </div>
+          <div id="code-editor-wrap">
+            <div id="code-gutter"></div>
+            <div id="code-surface">
+              <pre id="code-highlight" aria-hidden="true"><code id="code-highlight-inner"></code></pre>
+              <textarea id="code-editor" spellcheck="false" placeholder="Pick a file on the left to see its code."></textarea>
+            </div>
+          </div>
+          <div id="code-status" class="muted small"></div>
+        </div>
+      </section>
+
+      <div id="autotest-panel" class="hidden">
+        <div id="autotest-inner">
+          <button id="btn-autotest-close" title="Close">✕</button>
+          <h2>Autotest</h2>
+          <p class="muted small">Benchdrop clicks through the running app, fills in forms and follows its
+          navigation, and logs anything that breaks: console errors, uncaught exceptions, failed requests,
+          crashes. At the end you get a report with the steps that led to each problem.</p>
+
+          <p class="muted small">It tries every control it can reach, fields before buttons. To test toward a
+          goal, or have screens judged as well, connect Claude (Help → Connect to Claude…) and ask it.</p>
+
+          <div class="at-row">
+            <label for="autotest-steps">Stop after</label>
+            <input id="autotest-steps" type="number" min="5" max="300" value="40" />
+            <span class="muted small">steps</span>
+          </div>
+
+          <label class="checkbox-row">
+            <input id="autotest-risky" type="checkbox" />
+            <span>Allow risky actions <span class="muted">— delete, log out, pay, send, reset. Off means those are skipped and listed in the report.</span></span>
+          </label>
+
+          <button id="btn-autotest-go" class="primary">Start test</button>
+        </div>
+      </div>
+
+      <div id="autotest-banner" class="hidden">
+        <div>
+          <strong id="autotest-banner-title">Autotest finished</strong>
+          <p class="muted small" id="autotest-banner-text"></p>
+        </div>
+        <div class="auth-actions">
+          <button id="btn-autotest-report" class="primary">Open report</button>
+          <button id="btn-autotest-dismiss">Dismiss</button>
+        </div>
+      </div>
+
+      <div id="connect-panel" class="hidden">
+        <div id="connect-inner">
+          <button id="btn-connect-close" title="Close">✕</button>
+          <h2>Connect to Claude</h2>
+          <p class="muted small">Let Claude open, run and test projects in Benchdrop for you, from a conversation in
+          Claude Desktop or Claude Code. It uses your own Claude account — there's no API key to set up.</p>
+
+          <div class="connect-way">
+            <h3>Claude Desktop</h3>
+            <p class="muted small">In Claude Desktop, open <strong>Settings → Extensions</strong>, then drag
+            <strong>benchdrop.mcpb</strong> onto that page. Claude Desktop shows what it does and asks you to confirm.</p>
+            <button id="btn-connect-desktop" class="primary">Show the extension file</button>
+            <p id="connect-desktop-note" class="muted small hidden"></p>
+          </div>
+
+          <div class="connect-way">
+            <h3>Claude Code</h3>
+            <p class="muted small">Run this once in a terminal:</p>
+            <div id="connect-cmd-row">
+              <code id="connect-cmd"></code>
+              <button id="btn-connect-copy">Copy</button>
+            </div>
+            <p class="muted small connect-after">It won't appear in Claude Desktop's Settings → Extensions — that list is
+            only for Claude Desktop. To check it's there, run <code>claude mcp list</code>, or ask Claude in Claude Code
+            what Benchdrop tools it has.</p>
+          </div>
+
+          <p class="muted small connect-rules">Claude can open and run projects, read the screen, click, type, take
+          screenshots, read the log and run Autotest. Benchdrop refuses anything risky (delete, pay, send, log out…),
+          never types into password or secret fields for it, never follows links out of the app, and doesn't run
+          commands for it. Everything Claude does appears in the log, marked <strong>[claude]</strong>.</p>
+          <p class="muted small">Benchdrop is an independent project. It is not made by, endorsed by, or affiliated
+          with Anthropic, and the Claude name belongs to its owner.</p>
+          <p id="connect-state" class="muted small"></p>
+        </div>
+      </div>
+
+      <div id="shot-flash" class="hidden"></div>
+
+      <div id="shot-toast" class="hidden">
+        <img id="shot-thumb" alt="" />
+        <div class="shot-text">
+          <strong id="shot-title">Screenshot saved</strong>
+          <span class="muted" id="shot-note"></span>
+          <span class="muted small" id="shot-name"></span>
+        </div>
+        <div class="shot-actions">
+          <button id="btn-shot-folder">Show</button>
+          <button id="btn-shot-dismiss">✕</button>
+        </div>
+      </div>
+
+      <div id="region-overlay" class="hidden">
+        <div id="region-hint">Drag to select an area &nbsp;·&nbsp; Esc to cancel</div>
+        <div id="region-box" class="hidden"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor/prism.js" data-manual></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

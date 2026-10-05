@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Griffith.Software — https://griffith.software
+name: Test and build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fast checks first: a syntax error or a renamed element id should fail
+      # here rather than after a four-minute build.
+      - name: Syntax check
+        run: node --check main.js && node --check preload.js && node --check renderer/renderer.js
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Electron tests
+        run: npm run test:electron
+
+      - name: Build installer
+        run: npm run dist
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Benchdrop-Windows-Installer
+          path: dist/*.exe

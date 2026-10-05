@@ -1,0 +1,49 @@
+Benchdrop {VERSION} - start here
+================================
+
+To use Benchdrop, run the installer:
+
+    Benchdrop_v{VERSION}_win-x64_setup.exe
+
+That's all most people need. Benchdrop is a Windows app: it installs like any
+other program and appears in the Start menu. If Benchdrop is open, the
+installer closes it first (and anything it was running).
+
+It installs for you only, with no administrator prompt. Benchdrop versions
+before 4.3.0 are not upgraded by it: uninstall the earlier one from
+Settings > Installed apps.
+
+The installer isn't code-signed, so Windows SmartScreen may say it "protected
+your PC". Choose "More info", then "Run anyway".
+
+
+Using Benchdrop with Claude (optional)
+--------------------------------------
+
+Claude can open, run and test projects in Benchdrop for you, using your own
+Claude account - no API key. In Benchdrop, open Help > Connect to Claude... :
+
+  - Claude Desktop: drag benchdrop.mcpb onto Claude Desktop's
+    Settings > Extensions page.
+  - Claude Code: run the one-line "claude mcp add" command it shows. That
+    connection appears in Claude Code, not in Claude Desktop's Extensions list.
+    After updating Benchdrop, reconnect it in Claude Code (/mcp) or start a
+    new session - the update closes the running connection.
+
+
+The other file
+--------------
+
+benchdrop-source-v{VERSION}.zip is the source code, for building or changing
+Benchdrop. It is NOT the app - you don't need it to use Benchdrop. To build from
+it, unzip it, then with Node.js installed:
+
+    npm install
+    npm start          (run without installing)
+    npm run dist       (build the installer into dist\)
+
+Inside it, release\v{VERSION}\ holds this release's audit, release manifest
+(RELEASE.md, with test results), checksums, privacy policy and the drafts for
+the website.
+
+Benchdrop is MIT licensed. (c) 2026 Griffith.Software - https://griffith.software

@@ -1,0 +1,20 @@
+node_modules/
+release/
+build/wood.b64
+*.log
+.DS_Store
+Thumbs.db
+mcp/*.mcpb
+dist/
+archive/
+
+# Local working notes (kept out of the public repository)
+CLAUDE.md
+
+# local settings and secrets
+.env
+.env.*
+*.local
+.vscode/
+.idea/
+.claude/
