@@ -229,6 +229,8 @@ function resetToDropzone() {
   }
   exitNativeMode();
   nativePicker.classList.add('hidden');
+  androidPicker.classList.add('hidden');
+  if (!androidPhonePanel.classList.contains('hidden')) closeAndroidPhone();
   dropzone.classList.remove('hidden');
   scriptPicker.classList.add('hidden');
   appview.classList.add('hidden');
@@ -495,7 +497,8 @@ async function handleZipPath(zipPath, forceFresh = false) {
 }
 
 function routeLoadResult(result) {
-  if (result.needsNativeChoice) showNativePicker(result.info, result.projectDir);
+  if (result.needsAndroidChoice) showAndroidPicker(result.info, result.projectDir);
+  else if (result.needsNativeChoice) showNativePicker(result.info, result.projectDir);
   else if (result.needsScriptChoice) showScriptPicker(result.info, result.projectDir, result.reused, result.updated);
   else if (result.needsModeChoice) showModePicker(result.info, result.projectDir);
   else if (result.needsRuntimeChoice) showRuntimePicker(result.info, result.projectDir);
@@ -523,7 +526,7 @@ function routeLoadResult(result) {
     dropzone.classList.remove('dragover');
   })
 );
-const ACCEPTED = /\.(zip|html?|py|md|txt|json|js|css|svg)$/i;
+const ACCEPTED = /\.(zip|html?|py|md|txt|json|js|css|svg|apk)$/i;
 
 dropzone.addEventListener('drop', (e) => {
   const file = e.dataTransfer.files[0];
@@ -535,7 +538,7 @@ dropzone.addEventListener('drop', (e) => {
   if (!looksLikeFolder && !ACCEPTED.test(file.name)) {
     log(
       `[Benchdrop] "${file.name}" isn't something Benchdrop can run. ` +
-        'Drop a .zip, a folder, or a single .html, .py or .md file — or paste a GitHub link.\n'
+        'Drop a .zip, a folder, an Android app (.apk), or a single .html, .py or .md file — or paste a GitHub link.\n'
     );
     return;
   }
@@ -805,6 +808,7 @@ appview.addEventListener('will-navigate', (e) => {
 
 // --- Phone preview -------------------------------------------------------
 btnPhone.addEventListener('click', async () => {
+  if (nativeInfo && nativeInfo.android && nativeMode) { openAndroidPhone(); return; }
   if (!currentUrl) {
     log('[Benchdrop] Load a project first — there is nothing to open on a phone yet.\n');
     return;
@@ -1186,6 +1190,294 @@ btnRunNative.addEventListener('click', () => {
   window.benchdrop.runNative(currentProjectDir, nativeExe.value, nativeArgs.value);
 });
 
+// --- Android apps -------------------------------------------------------------
+const androidPicker = $('android-picker');
+const androidPickerTitle = $('android-picker-title');
+const androidPickerSub = $('android-picker-sub');
+const androidTools = $('android-tools');
+const androidTarget = $('android-target');
+const androidTargetNote = $('android-target-note');
+const androidBuild = $('android-build');
+const androidBuildRow = $('android-build-row');
+const btnRunAndroid = $('btn-run-android');
+const btnAndroidRefresh = $('btn-android-refresh');
+const btnAndroidBack = $('btn-android-back');
+const btnAndroidHome = $('btn-android-home');
+const btnAndroidRecents = $('btn-android-recents');
+let androidState = null;   // what the panel shows: { info, projectDir }
+
+function showAndroidPicker(info, projectDir) {
+  currentProjectDir = projectDir;
+  androidState = { info, projectDir };
+  dropzone.classList.add('hidden');
+  androidPicker.classList.remove('hidden');
+  btnReset.classList.remove('hidden');
+  btnFolder.classList.remove('hidden');
+  androidPickerTitle.textContent = info.apk ? 'Android app' : 'Android app project';
+  androidPickerSub.textContent = info.apk
+    ? `"${info.apk}" will be installed and started.`
+    : `"${info.name}"${info.applicationId ? ` (${info.applicationId})` : ''} will be built, installed and started.`;
+  androidBuildRow.classList.toggle('hidden', !!info.apk);
+  renderAndroidPanel(info);
+  setIndicator(info.tools && info.tools.sdk ? 'idle' : 'error', info.tools && info.tools.sdk ? 'Ready to run' : 'Android SDK missing');
+}
+
+function renderAndroidPanel(info) {
+  const t = info.tools || {};
+  androidTools.innerHTML = '';
+  const row = (ok, text, what, button) => {
+    const d = document.createElement('div');
+    d.className = `android-tool ${ok ? 'ok' : 'missing'}`;
+    const w = document.createElement('span');
+    w.className = 'what';
+    w.textContent = text;
+    d.appendChild(w);
+    if (what) {
+      const b = document.createElement('button');
+      b.textContent = button || 'Choose…';
+      b.addEventListener('click', () => locateAndroid(what));
+      d.appendChild(b);
+    }
+    androidTools.appendChild(d);
+  };
+  row(!!t.sdk, t.sdk ? `Android SDK: ${t.sdk}` : "Android SDK: not found. Install Android Studio, or choose the SDK folder.", 'sdk', t.sdk ? 'Change…' : 'Choose…');
+  if (!info.apk) row(!!t.jdk, t.jdk ? `JDK for building: ${t.jdk}` : 'JDK for building: not found. Android Studio includes one, or choose a JDK folder.', 'jdk', t.jdk ? 'Change…' : 'Choose…');
+  if (t.sdk && t.emulator && !t.avdHome) row(false, 'No emulators found. Make one in Android Studio (Device Manager), or choose the folder that has them.', 'avd');
+  if (!t.sdk) {
+    const d = document.createElement('div');
+    d.className = 'android-tool';
+    const b = document.createElement('button');
+    b.textContent = 'Get Android Studio';
+    b.addEventListener('click', () => window.benchdrop.androidStudioPage());
+    d.appendChild(b);
+    androidTools.appendChild(d);
+  }
+  androidTarget.innerHTML = '';
+  for (const [i, tg] of (info.targets || []).entries()) {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = tg.label + (tg.note ? ` — ${tg.note}` : '');
+    o.disabled = !tg.ready;
+    androidTarget.appendChild(o);
+  }
+  const firstReady = (info.targets || []).findIndex((tg) => tg.ready);
+  if (firstReady >= 0) androidTarget.value = String(firstReady);
+  androidTargetNote.textContent = !t.sdk ? ''
+    : !(info.targets || []).length ? 'Plug in a phone with USB debugging on, or make an emulator in Android Studio, then press Refresh devices.'
+      : (info.targets || []).some((tg) => tg.kind === 'avd') ? 'Starting an emulator can take a minute or two the first time.' : '';
+  btnRunAndroid.disabled = !t.sdk || firstReady < 0 || (!info.apk && !t.jdk && androidBuild.checked);
+}
+
+androidBuild.addEventListener('change', () => androidState && renderAndroidPanel(androidState.info));
+
+async function refreshAndroid() {
+  if (!androidState) return;
+  const fresh = await window.benchdrop.androidTargets(androidState.projectDir);
+  Object.assign(androidState.info, fresh);
+  renderAndroidPanel(androidState.info);
+}
+btnAndroidRefresh.addEventListener('click', refreshAndroid);
+
+async function locateAndroid(what) {
+  if (!androidState) return;
+  const r = await window.benchdrop.androidLocate(what, androidState.projectDir);
+  if (r && r.ok && r.info) {
+    Object.assign(androidState.info, r.info);
+    renderAndroidPanel(androidState.info);
+    setIndicator(r.info.tools && r.info.tools.sdk ? 'idle' : 'error', r.info.tools && r.info.tools.sdk ? 'Ready to run' : 'Android SDK missing');
+  } else if (r && r.message) {
+    log(`[Benchdrop] ${r.message}\n`);
+  }
+}
+
+btnRunAndroid.addEventListener('click', async () => {
+  if (!androidState || btnRunAndroid.disabled) return;
+  const target = (androidState.info.targets || [])[Number(androidTarget.value)];
+  androidPicker.classList.add('hidden');
+  logpanel.classList.remove('hidden');
+  setAppBusy(true);
+  setIndicator('busy', target && target.kind === 'avd' ? 'Starting the emulator…' : 'Building…');
+  const r = await window.benchdrop.runAndroid(androidState.projectDir, target, androidState.info.apk ? false : androidBuild.checked);
+  setAppBusy(false);
+  if (!r || !r.ok) {
+    androidPicker.classList.remove('hidden');
+    await refreshAndroid();
+  }
+});
+
+// --- Put it on a phone: pair over Wi-Fi, or download the APK ---
+const androidPhonePanel = $('android-phone-panel');
+const androidPairQr = $('android-pair-qr');
+const androidPairStatus = $('android-pair-status');
+const btnAndroidRunPhone = $('btn-android-run-phone');
+const androidApkQr = $('android-apk-qr');
+const androidApkUrl = $('android-apk-url');
+const androidApkNote = $('android-apk-note');
+const btnAndroidPhoneClose = $('btn-android-phone-close');
+const btnAndroidPair = $('btn-android-pair');
+let pairedPhone = null;
+
+async function openAndroidPhone() {
+  if (!currentProjectDir) return;
+  pairedPhone = null;
+  btnAndroidRunPhone.classList.add('hidden');
+  androidPairStatus.className = 'muted small';
+  androidPairStatus.textContent = 'Getting the codes ready…';
+  androidPhonePanel.classList.remove('hidden');
+  setDockHidden('phone', true);
+  const r = await window.benchdrop.androidPhone(currentProjectDir);
+  if (!r || !r.ok) {
+    androidPairStatus.className = 'small bad';
+    androidPairStatus.textContent = (r && r.message) || "Couldn't get ready to talk to a phone.";
+    return;
+  }
+  androidPairQr.src = r.pairQr;
+  androidPairStatus.textContent = 'Waiting for the phone to scan the code…';
+  if (r.apkQr) {
+    androidApkQr.src = r.apkQr;
+    androidApkQr.classList.remove('hidden');
+    androidApkUrl.textContent = r.apkUrl;
+    androidApkUrl.classList.remove('hidden');
+    androidApkNote.textContent = `Scan to download ${r.apkName} (built ${r.apkBuilt}), then open the file to install it. Android asks once to allow installing apps from your browser or files app. Benchdrop doesn't see the app run this way.`;
+  } else {
+    androidApkQr.classList.add('hidden');
+    androidApkUrl.classList.add('hidden');
+    androidApkNote.textContent = r.apkMissing
+      ? 'There is no built app to download yet. Run it once (it builds first), then open this again.'
+      : 'No Wi-Fi network was found on this computer, so the app can\'t be offered for download.';
+  }
+}
+
+async function closeAndroidPhone() {
+  androidPhonePanel.classList.add('hidden');
+  setDockHidden('phone', false);
+  await window.benchdrop.androidPhoneStop();
+}
+btnAndroidPhoneClose.addEventListener('click', closeAndroidPhone);
+btnAndroidPair.addEventListener('click', openAndroidPhone);
+
+function androidPairUpdate(p) {
+  if (androidPhonePanel.classList.contains('hidden')) return;
+  androidPairStatus.textContent = p.message;
+  androidPairStatus.className = `small ${p.stage === 'paired' ? 'ok' : p.stage === 'failed' || p.stage === 'expired' ? 'bad' : 'muted'}`;
+  if (p.stage === 'paired') {
+    pairedPhone = { kind: 'device', serial: p.serial, label: p.label, ready: true };
+    btnAndroidRunPhone.textContent = `Run it on ${p.label}`;
+    btnAndroidRunPhone.classList.remove('hidden');
+    if (androidState) refreshAndroid();
+  }
+}
+
+btnAndroidRunPhone.addEventListener('click', async () => {
+  if (!pairedPhone || !androidState) return;
+  const phone = pairedPhone;
+  await closeAndroidPhone();
+  androidPicker.classList.add('hidden');
+  logpanel.classList.remove('hidden');
+  setAppBusy(true);
+  setIndicator('busy', `Installing on ${phone.label}…`);
+  // The app was built for the emulator already, if it ran; otherwise build it.
+  const built = nativeMode && nativeInfo && nativeInfo.android;
+  const r = await window.benchdrop.runAndroid(androidState.projectDir, phone, androidState.info.apk ? false : !built);
+  setAppBusy(false);
+  if (!r || !r.ok) {
+    androidPicker.classList.remove('hidden');
+    await refreshAndroid();
+  }
+});
+
+const androidKey = (key) => window.benchdrop.androidInput({ type: 'key', key }).then(() => kickAndroidFrame());
+btnAndroidBack.addEventListener('click', () => androidKey('back'));
+btnAndroidHome.addEventListener('click', () => androidKey('home'));
+btnAndroidRecents.addEventListener('click', () => androidKey('recents'));
+
+// The device's screen is a picture refreshed a few times a second; clicks,
+// drags, the wheel and typing on it are sent to the device.
+let androidLoop = null;
+let androidKick = null;
+function kickAndroidFrame() { if (androidKick) androidKick(); }
+function startAndroidMirror() {
+  const token = {};
+  androidLoop = token;
+  (async () => {
+    while (androidLoop === token && nativeMode && nativeRunning) {
+      const f = await window.benchdrop.nativeFrame().catch(() => null);
+      if (androidLoop !== token) break;
+      if (f) {
+        nativeStill.src = f.dataUrl;
+        nativeStill.classList.remove('hidden');
+        nativePlaceholder.classList.add('hidden');
+        nativeHint.classList.remove('hidden');
+      }
+      await new Promise((r) => { androidKick = r; setTimeout(r, 300); });
+    }
+  })();
+}
+
+function deviceXY(e) {
+  const r = stillContentRect();
+  const iw = nativeStill.naturalWidth || 1;
+  const ih = nativeStill.naturalHeight || 1;
+  return {
+    x: Math.round(((e.clientX - r.left) / r.width) * iw),
+    y: Math.round(((e.clientY - r.top) / r.height) * ih),
+    inside: e.clientX >= r.left && e.clientX <= r.left + r.width && e.clientY >= r.top && e.clientY <= r.top + r.height,
+  };
+}
+let androidPress = null;
+nativeStill.addEventListener('mousedown', (e) => {
+  if (!(nativeInfo && nativeInfo.android) || e.button !== 0) return;
+  e.preventDefault();
+  nativeStage.focus();
+  const p = deviceXY(e);
+  if (p.inside) androidPress = { ...p, cx: e.clientX, cy: e.clientY, t: Date.now() };
+});
+window.addEventListener('mouseup', (e) => {
+  const start = androidPress;
+  androidPress = null;
+  if (!start || !(nativeInfo && nativeInfo.android)) return;
+  const end = deviceXY(e);
+  const moved = Math.hypot(e.clientX - start.cx, e.clientY - start.cy);
+  const ms = Math.max(100, Math.min(1500, Date.now() - start.t));
+  const ev = moved < 8
+    ? { type: 'tap', x: start.x, y: start.y }
+    : { type: 'swipe', x: start.x, y: start.y, x2: end.x, y2: end.y, ms };
+  window.benchdrop.androidInput(ev).then(() => kickAndroidFrame());
+});
+let androidWheelAt = 0;
+nativeStill.addEventListener('wheel', (e) => {
+  if (!(nativeInfo && nativeInfo.android)) return;
+  e.preventDefault();
+  if (Date.now() - androidWheelAt < 350) return;
+  androidWheelAt = Date.now();
+  const p = deviceXY(e);
+  const h = nativeStill.naturalHeight || 2400;
+  const dy = Math.round(h * 0.28) * (e.deltaY > 0 ? -1 : 1);
+  window.benchdrop.androidInput({ type: 'swipe', x: p.x, y: p.y, x2: p.x, y2: Math.max(1, Math.min(h - 1, p.y + dy)), ms: 220 }).then(() => kickAndroidFrame());
+}, { passive: false });
+let androidTyped = '';
+let androidTypeTimer = null;
+nativeStage.addEventListener('keydown', (e) => {
+  if (!(nativeInfo && nativeInfo.android) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.length === 1) {
+    e.preventDefault();
+    androidTyped += e.key;
+    clearTimeout(androidTypeTimer);
+    androidTypeTimer = setTimeout(() => {
+      const text = androidTyped;
+      androidTyped = '';
+      window.benchdrop.androidInput({ type: 'text', text }).then(() => kickAndroidFrame());
+    }, 160);
+    return;
+  }
+  const map = { Escape: 'back' };
+  const key = map[e.key] || e.key;
+  if (['Enter', 'Backspace', 'Delete', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'back'].includes(key)) {
+    e.preventDefault();
+    window.benchdrop.androidInput({ type: 'key', key }).then(() => kickAndroidFrame());
+  }
+});
+
 function stageBounds() {
   const r = nativeStage.getBoundingClientRect();
   return { x: r.left, y: r.top, w: r.width, h: r.height };
@@ -1223,6 +1515,21 @@ function enterNativeMode(p) {
   btnNativeFront.disabled = true;
   btnNativeDock.classList.toggle('hidden', !p.windows);
   btnNativeFront.classList.toggle('hidden', !p.windows);
+  const isAndroid = !!p.android;
+  document.body.classList.toggle('android-mode', isAndroid);
+  for (const b of [btnAndroidBack, btnAndroidHome, btnAndroidRecents]) b.classList.toggle('hidden', !isAndroid);
+  nativeStage.tabIndex = isAndroid ? 0 : -1;
+  if (isAndroid) {
+    btnNativeDock.classList.add('hidden');
+    btnNativeFront.textContent = 'Show emulator';
+    btnNativeFront.title = "Bring the emulator's own window to the front";
+    btnNativeFront.classList.toggle('hidden', !p.hasEmulatorWindow);
+    nativeHint.textContent = "The device's screen: click, drag, scroll and type here to use the app.";
+  } else {
+    btnNativeFront.textContent = 'Show window';
+    btnNativeFront.title = "Bring the program's own window to the front";
+    nativeHint.innerHTML = 'This is a live picture of the program. Click it to switch to the program\'s own window, or use <strong>Dock here</strong> to work with it inside Benchdrop.';
+  }
   if (p.windows) {
     setPlaceholder('Waiting for the program to open a window…', 'Its output appears in the log as it runs.');
   } else {
@@ -1242,6 +1549,7 @@ function exitNativeMode() {
   nativeHasWindow = false;
   dockHiddenFor.clear();
   document.body.classList.remove('native-mode');
+  document.body.classList.remove('android-mode');
   nativeView.classList.add('hidden');
   cancelNativeRegion();
 }
@@ -1249,6 +1557,7 @@ function exitNativeMode() {
 async function startMirror() {
   stopMirror();
   if (nativeDocked) return;
+  if (nativeInfo && nativeInfo.android) { startAndroidMirror(); return; }
   const id = await window.benchdrop.nativeSource();
   if (id) {
     try {
@@ -1290,6 +1599,7 @@ function stopMirror() {
   nativeMirror.classList.add('hidden');
   nativeStill.classList.add('hidden');
   nativeHint.classList.add('hidden');
+  androidLoop = null;
 }
 
 // The mirror is a picture (with the program's own pointer drawn into it), not
@@ -1297,6 +1607,7 @@ function stopMirror() {
 for (const el of [nativeMirror, nativeStill]) {
   el.addEventListener('click', () => {
     if (!nativeMode || nativeDocked || !nativeRegion.classList.contains('hidden')) return;
+    if (nativeInfo && nativeInfo.android) return;   // clicks go to the device
     window.benchdrop.nativeShow(true, true);
   });
 }
@@ -1811,6 +2122,15 @@ window.benchdrop.onStatus((payload) => {
         : 'Could not identify which process is holding it.';
       // Vite (and others) just move to the next port: the app still runs, so
       // this is a note with the option to free the port, not an error.
+      if (payload.newPort) {
+        portTitle.textContent = `Port ${payload.port} was in use, so Benchdrop started "${payload.script}" on port ${payload.newPort}.`;
+        portReason.textContent =
+          `Something else already holds port ${payload.port}. ${who} ` +
+          `The app runs on port ${payload.newPort} this time; freeing port ${payload.port} stops that process and starts this project on its usual port.`;
+        portBanner.classList.remove('hidden');
+        log(`\n[Benchdrop] Port ${payload.port} was in use; trying port ${payload.newPort}.\n`);
+        break;
+      }
       if (payload.moved) {
         portTitle.textContent = `Port ${payload.port} was in use, so "${payload.script}" moved to another port.`;
         portReason.textContent =
@@ -1825,6 +2145,9 @@ window.benchdrop.onStatus((payload) => {
       portReason.textContent =
         `"${payload.script}" could not start because something else is on port ${payload.port} — ` +
         `usually a server left over from an earlier run. ${who} ` +
+        (payload.ignoredPort
+          ? `Benchdrop offered it port ${payload.ignoredPort}, but this project doesn't read the PORT setting, so it can't move. `
+          : '') +
         'Freeing it will stop that process and start this project again.';
       portBanner.classList.remove('hidden');
       log(`\n[Benchdrop] Port ${payload.port} is busy.\n`);
@@ -1846,6 +2169,9 @@ window.benchdrop.onStatus((payload) => {
     case 'reload-app':
       if (currentUrl) appview.reload();
       break;
+    case 'android-pair':
+      androidPairUpdate(payload);
+      break;
     case 'native-started':
       enterNativeMode(payload);
       break;
@@ -1859,6 +2185,7 @@ window.benchdrop.onStatus((payload) => {
     case 'native-info': {
       if (!nativeMode) break;
       const parts = [`process ${nativeInfo.pid}`];
+      if (nativeInfo.android && nativeInfo.device) parts.push(`on ${nativeInfo.device}`);
       if (payload.mem) parts.push(fmtMem(payload.mem));
       if (payload.windows > 1) parts.push(`${payload.windows} windows`);
       if (payload.procs > 1) parts.push(`${payload.procs} processes`);
@@ -1982,6 +2309,13 @@ function connectorPicker() {
   if (shown(nativePicker)) {
     return { kind: 'native', programs: [...nativeExe.options].map((o) => o.value), selected: nativeExe.value };
   }
+  if (shown(androidPicker) && androidState) {
+    const info = androidState.info;
+    return {
+      kind: 'android', apk: info.apk || null, sdk: !!(info.tools && info.tools.sdk),
+      targets: (info.targets || []).filter((t) => t.ready).map((t) => t.label),
+    };
+  }
   if (shown(modePicker)) {
     const pages = [...modeOptions.querySelectorAll('button')].slice(0, -1)
       .map((b) => b.querySelector('strong').textContent.replace(/^Open /, ''));
@@ -2039,6 +2373,23 @@ function connectorRun(a) {
     if (!chosen.length) return { refused: 'No scripts are selected to run.' };
     btnRun.click();
     return { describe: chosen.join(' + ') };
+  }
+  if (shown(androidPicker) && androidState) {
+    const list = androidState.info.targets || [];
+    if (!(androidState.info.tools && androidState.info.tools.sdk)) return { refused: "The Android SDK isn't installed on this computer. The person needs to install Android Studio, then reopen the project." };
+    if (a.device) {
+      const want = String(a.device).toLowerCase();
+      const i = list.findIndex((t) => t.ready && (t.label.toLowerCase().includes(want) || (t.serial || '').toLowerCase() === want || (t.avd || '').toLowerCase() === want));
+      if (i < 0) return { refused: `There's no phone or emulator called "${a.device}". Choices: ${list.filter((t) => t.ready).map((t) => t.label).join(', ') || 'none'}.` };
+      androidTarget.value = String(i);
+    }
+    if (a.build != null) androidBuild.checked = !!a.build;
+    renderAndroidPanel(androidState.info);
+    if (a.device) androidTarget.value = String(list.findIndex((t) => t.ready && (t.label.toLowerCase().includes(String(a.device).toLowerCase()) || (t.serial || '').toLowerCase() === String(a.device).toLowerCase() || (t.avd || '').toLowerCase() === String(a.device).toLowerCase())));
+    if (btnRunAndroid.disabled) return { refused: 'It can\'t run yet - check the Android panel (no device, or no JDK to build with).' };
+    const chosen = list[Number(androidTarget.value)];
+    btnRunAndroid.click();
+    return { describe: `${androidState.info.apk || androidState.info.name} on ${chosen ? chosen.label : 'the device'}` };
   }
   if (shown(nativePicker)) {
     if (a.program) {

@@ -272,6 +272,76 @@ check('masking', 'password and token names are masked', /SECRET\s*=\s*\/pass\|pw
 check('masking', 'a field value is never used as its label', /Never fall back to a field's value/.test(injected));
 
 // ---------------------------------------------------------------------------
+section('android');
+const A = require('../android');
+check('android', 'reads sdk.dir from local.properties (escaped)',
+  A.parseLocalProperties('# comment\nsdk.dir=C\\:\\\\Users\\\\me\\\\Android Sdk\n')['sdk.dir'] === 'C:\\Users\\me\\Android Sdk');
+const devs = A.parseDevices('List of devices attached\nemulator-5554          device product:sdk_gphone64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1\nR58N12  unauthorized usb:1-1 transport_id:2\n\n');
+check('android', 'lists devices with their state', devs.length === 2 && devs[0].emulator && devs[0].state === 'device' && devs[1].state === 'unauthorized' && !devs[1].emulator);
+const badge = A.parseBadging("package: name='com.example.app' versionCode='3'\nsdkVersion:'26'\napplication-label:'Try It'\nlaunchable-activity: name='com.example.app.MainActivity'  label='' icon=''\n");
+check('android', 'reads package, launch activity and name from an APK', badge.pkg === 'com.example.app' && badge.activity === 'com.example.app.MainActivity' && badge.label === 'Try It');
+check('android', 'finds the applicationId in a build file', A.readApplicationId('android {\n defaultConfig {\n  applicationId = "com.x.y"\n }\n}') === 'com.x.y');
+const dumpXml = "<?xml version='1.0'?><hierarchy rotation=\"0\"><node text=\"\" class=\"android.widget.FrameLayout\" package=\"com.example.app\" clickable=\"false\" enabled=\"true\" password=\"false\" bounds=\"[0,0][1080,2400]\">" +
+  '<node text="Welcome &amp; hello" class="android.widget.TextView" package="com.example.app" clickable="false" enabled="true" password="false" bounds="[10,10][500,60]" />' +
+  '<node text="" class="android.view.View" package="com.example.app" clickable="true" enabled="true" password="false" bounds="[42,1985][1038,2132]"><node text="Next Case" class="android.widget.TextView" package="com.example.app" clickable="false" enabled="true" password="false" bounds="[372,2034][619,2083]" /></node>' +
+  '<node text="" content-desc="Your name" class="android.widget.EditText" package="com.example.app" clickable="true" enabled="true" password="false" bounds="[40,300][1040,400]" />' +
+  '<node text="secret" class="android.widget.EditText" package="com.example.app" clickable="true" enabled="true" password="true" bounds="[40,420][1040,520]" />' +
+  '<node text="Off screen" class="android.widget.Button" package="com.example.app" clickable="true" enabled="true" password="false" bounds="[40,2600][1040,2700]" />' +
+  '<node text="Save" class="android.widget.Button" package="com.example.app" clickable="true" enabled="false" password="false" bounds="[40,600][1040,700]" />' +
+  '</node></hierarchy>UI hierchary dumped to: /dev/tty';
+const ui = A.parseUiDump(dumpXml, { w: 1080, h: 2400 });
+const byLabel = (l) => ui.elements.find((e) => e.label === l);
+check('android', 'names a Compose button by the text inside it', !!byLabel('Next Case') && byLabel('Next Case').kind === 'button' && byLabel('Next Case').x === 540 && byLabel('Next Case').y === 2059);
+check('android', 'a text field is a field, named by its description', !!byLabel('Your name') && byLabel('Your name').kind === 'field');
+check('android', 'a password field is secret and its value never shown', ui.elements.some((e) => e.kind === 'field' && e.secret && e.value === undefined));
+check('android', 'leaves out controls off the screen', !byLabel('Off screen'));
+check('android', 'marks disabled controls', !!byLabel('Save') && byLabel('Save').disabled);
+check('android', 'collects the screen text and the app package', ui.text.includes('Welcome & hello') && ui.pkg === 'com.example.app');
+const mdns = A.parseMdnsServices('List of discovered mdns services\nadb-EMU\t_adb._tcp\t10.0.2.16:5555\nbenchdrop-abc123\t_adb-tls-pairing._tcp\t192.168.1.44:37011\nadb-R58N-x\t_adb-tls-connect._tcp.\t192.168.1.44:41235\n');
+check('android', "reads a phone's Wi-Fi pairing service", mdns.length === 3 && mdns[1].name === 'benchdrop-abc123' && mdns[1].type === '_adb-tls-pairing._tcp' && mdns[1].host === '192.168.1.44' && mdns[1].port === 37011 && mdns[2].type === '_adb-tls-connect._tcp');
+check('android', 'quotes typed text for the device shell', A.inputTextArg("it's a test") === "'it'\\''s%sa%stest'");
+
+const adir = fs.mkdtempSync(path.join(os.tmpdir(), 'bd-android-'));
+const proj = path.join(adir, 'MyApp');
+fs.mkdirSync(path.join(proj, 'app'), { recursive: true });
+fs.writeFileSync(path.join(proj, 'settings.gradle.kts'), 'include(":app")');
+fs.writeFileSync(path.join(proj, 'gradlew.bat'), '');
+fs.writeFileSync(path.join(proj, 'app', 'build.gradle.kts'), 'plugins { id("com.android.application") }\nandroid { defaultConfig { applicationId = "com.example.myapp" } }');
+const det = A.detectAndroidProject(proj);
+check('android', 'detects an Android Studio project and its app module', !!det && det.type === 'android' && det.module === 'app' && det.applicationId === 'com.example.myapp' && det.gradlew);
+const lib = path.join(adir, 'JavaLib');
+fs.mkdirSync(lib);
+fs.writeFileSync(path.join(lib, 'build.gradle'), "plugins { id 'java' }");
+check('android', 'a plain Java Gradle project is not taken for Android', A.detectAndroidProject(lib) === null);
+
+// Tools: a fake SDK and JDK side by side, found through the project's local.properties -
+// and from an APK deep inside the project's build folder.
+const tools = path.join(adir, 'tools');
+fs.mkdirSync(path.join(tools, 'sdk', 'platform-tools'), { recursive: true });
+fs.writeFileSync(path.join(tools, 'sdk', 'platform-tools', 'adb.exe'), '');
+fs.mkdirSync(path.join(tools, 'jdk-17', 'bin'), { recursive: true });
+fs.writeFileSync(path.join(tools, 'jdk-17', 'bin', 'java.exe'), '');
+fs.mkdirSync(path.join(tools, 'android-avd'));
+fs.writeFileSync(path.join(tools, 'android-avd', 'pixel.ini'), 'path=x');
+fs.writeFileSync(path.join(proj, 'local.properties'), `sdk.dir=${path.join(tools, 'sdk').replace(/\\/g, '\\\\').replace(/:/g, '\\:')}\n`);
+const settings = {};
+const savedEnv = { ANDROID_HOME: process.env.ANDROID_HOME, ANDROID_SDK_ROOT: process.env.ANDROID_SDK_ROOT, JAVA_HOME: process.env.JAVA_HOME, ANDROID_AVD_HOME: process.env.ANDROID_AVD_HOME };
+for (const k of Object.keys(savedEnv)) delete process.env[k];
+const ad = A.createAndroid({ readSettings: () => settings, writeSettings: (p) => Object.assign(settings, p), sendLog: () => {}, sendStatus: () => {}, traceLog: () => {}, sleep: async () => {} });
+const tr = ad.resolveTools(proj);
+check('android', "finds the SDK from the project's local.properties", tr.sdk === path.join(tools, 'sdk') && /local\.properties/.test(tr.sdkFrom));
+check('android', 'finds a JDK kept beside the SDK', tr.jdk === path.join(tools, 'jdk-17'));
+check('android', 'finds emulators kept beside the SDK', tr.avdHome === path.join(tools, 'android-avd'));
+const apkDir = path.join(proj, 'app', 'build', 'outputs', 'apk', 'debug');
+fs.mkdirSync(apkDir, { recursive: true });
+check('android', 'an APK inside a project finds the SDK through the project', ad.resolveTools(apkDir).sdk === path.join(tools, 'sdk'));
+check('android', 'remembers that SDK for APKs elsewhere', settings.androidSdkSeen === path.join(tools, 'sdk') && ad.resolveTools(adir).sdk === path.join(tools, 'sdk'));
+settings.androidSdk = path.join(adir, 'nowhere');
+check('android', 'a setting that points nowhere is skipped', ad.resolveTools(proj).sdk === path.join(tools, 'sdk'));
+for (const [k, v] of Object.entries(savedEnv)) if (v !== undefined) process.env[k] = v;
+fs.rmSync(adir, { recursive: true, force: true });
+
+// ---------------------------------------------------------------------------
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

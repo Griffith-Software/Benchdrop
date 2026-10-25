@@ -17,6 +17,8 @@ to install.
 * a single **.html** page — served on its own, useful for standalone apps
 * a single **.py** script
 * a **.md** file — rendered as a readable page rather than shown as raw text
+* a Windows program (**.exe**) — see [Windows programs](#windows-programs-exe)
+* an **Android app**: an Android Studio project folder or an **.apk** — see [Android apps](#android-apps)
 
 ## Loading from a link
 
@@ -210,6 +212,54 @@ runs it again.
 If something doesn't work on a particular machine, **Help → Check native program
 support** tests each Windows-specific part and says which one failed.
 
+## Android apps
+
+Drop an Android Studio project folder, or an `.apk`, and Benchdrop builds the
+app (with the project's own Gradle wrapper), installs it on a phone or
+emulator, starts it and shows its screen in the pane. The panel lists what it
+can run on: phones plugged in with USB debugging on, emulators that are
+running, and emulators it can start (a first start can take a minute or two).
+
+The screen in the pane is the device's: click to tap, drag to swipe, scroll
+with the wheel, and type when the pane has focus. Back, Home and Recents are
+above it, and **Show emulator** brings the emulator's own window forward.
+
+| Feature | For an Android app |
+|---|---|
+| **Log** | the app's own log (Android's logcat for its process, Info and above) |
+| **Crashes** | a crash is caught with its exception and stack lines, and "not responding" (an ANR) is reported |
+| **Trace** | taps and swipes sent from Benchdrop, and which screen (activity) is showing |
+| **Capture** | the device's screen, or a region of it |
+| **Autotest** | reads the screen through Android's UI Automator and taps every button and field it finds — Compose buttons are named by the words on them |
+| **Restart** | stops the app and starts it again |
+| **Claude** | the connector's tools work on the app too: snapshot, act, screenshot, log and autotest |
+
+**What it needs.** The Android SDK — Android Studio includes it. Benchdrop
+finds it from the project's `local.properties`, `ANDROID_HOME`, or Android
+Studio's usual folder; a dropped `.apk` inside a project's build folder finds
+it through the project, and Benchdrop remembers it for next time. Building
+needs a JDK: Android Studio's own, `JAVA_HOME`, the project's
+`gradle.properties`, or one kept beside the SDK. Anything it can't find, the
+panel says so and lets you choose the folder. Benchdrop never installs the SDK
+or a JDK itself.
+
+**On your own phone.** The **Phone** button (or **Phone…** in the Android
+panel) shows two QR codes, for a phone on the same Wi-Fi as this computer:
+
+- **Run it on your phone.** Turn on Developer options and Wireless debugging
+  (Android 11 or later), tap *Pair device with QR code* and scan. Benchdrop
+  pairs, connects, and offers *Run it on this phone*: the app installs and runs
+  there with its screen, log, crashes, Autotest and Claude, as on the emulator.
+- **Just install it.** Scan to download the app (served from this computer,
+  only while the panel is open), then open the file to install it. Android
+  asks once to allow installing apps from the browser or files app. Benchdrop
+  doesn't see the app run this way.
+
+Windows may ask once to let Benchdrop accept connections on your network.
+
+Stop closes the app on the device. An emulator Benchdrop started stays open
+until Benchdrop closes, since starting one is slow.
+
 ## Autotest
 
 The **Autotest** button lets Benchdrop test the running app the way a person
@@ -353,9 +403,9 @@ result, but never handles your credentials.
 
 ## Installing it
 
-Download `Benchdrop_v4.3.3_win-x64_setup.exe` from the [releases page](https://github.com/Griffith-Software/Benchdrop/releases).
+Download `Benchdrop_v4.5.3_win-x64_setup.exe` from the [releases page](https://github.com/Griffith-Software/Benchdrop/releases).
 
-Run `Benchdrop_v4.3.3_win-x64_setup.exe` and follow the installer. It installs
+Run `Benchdrop_v4.5.3_win-x64_setup.exe` and follow the installer. It installs
 for you only, in `%LOCALAPPDATA%\Programs\Benchdrop`, with no administrator
 prompt. It shows the license, adds a Start menu shortcut, and offers a desktop
 shortcut on its last page (unticked). If Benchdrop is running, the installer
@@ -363,7 +413,7 @@ closes it first.
 
 Silent install and uninstall (exit code 0 when they succeed):
 
-    Benchdrop_v4.3.3_win-x64_setup.exe /S
+    Benchdrop_v4.5.3_win-x64_setup.exe /S
     "%LOCALAPPDATA%\Programs\Benchdrop\Uninstall Benchdrop.exe" /currentuser /S
 
 Uninstalling from Settings → Installed apps asks whether to also delete
@@ -373,7 +423,7 @@ uninstall always keeps it.
 
 To check a download, compare its SHA-256 with the published value:
 
-    Get-FileHash .\Benchdrop_v4.3.3_win-x64_setup.exe -Algorithm SHA256
+    Get-FileHash .\Benchdrop_v4.5.3_win-x64_setup.exe -Algorithm SHA256
 
 Windows may show "Windows protected your PC" when you first run a new release,
 because Windows has not yet seen enough downloads of it. Check that the SHA-256
@@ -456,9 +506,11 @@ sign you in the first time). Benchdrop handles this:
 * **Fix suggestions.** Benchdrop watches output for known "you skipped a setup
   step" errors and offers the command that fixes it. It never runs one on its
   own — these change your own cloud resources, so you press the button.
-* **Stuck ports.** If a script can't start because a leftover server from a
-  previous run still holds its port, Benchdrop spots it, identifies the process,
-  and offers to stop it and retry.
+* **Stuck ports.** If a script can't start because something else holds its
+  port, Benchdrop starts it again on the next free port, handed over as the
+  standard `PORT` setting (8174 taken: it runs on 8175), and says so. That works
+  for any server that reads `PORT`; for one that doesn't, Benchdrop identifies
+  the process holding the port and offers to stop it and retry.
 * **Updated zips are detected.** The folder is keyed to the zip's path, but
   re-use is decided by its *contents*. Drop in a rebuilt zip with the same
   filename and Benchdrop unpacks the new code over the old — it won't silently
@@ -520,6 +572,11 @@ spawns, so packages whose install scripts shell out to a bare `node`
 
 ## Known limitations
 
+- Android: the pane shows the device's screen a few times a second (Android's
+  own screenshots), which is fine for testing but not for games or video; the
+  emulator's own window is smooth. Typed text is limited to plain letters,
+  numbers and punctuation (Android's `input text`). Autotest reads a screen in
+  about two seconds, and an app that never stops animating can't be read at all.
 - A project's servers are ended when you press Stop, load another project or
   close Benchdrop. If Benchdrop is ended any other way (Task Manager, a crash),
   Windows leaves them running and holding their ports; the next time Benchdrop

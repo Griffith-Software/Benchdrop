@@ -3,6 +3,63 @@
 All notable changes to Benchdrop. Versions follow semantic versioning.
 History before 4.1.2 was not recorded in this form.
 
+## 4.5.3 - 2026-10-24
+
+### Fixed
+- After a project moved to another port, the log said "Still waiting for a
+  local URL" a minute and a half later although the app was running: a timer
+  from the first try went off. It now stands down when the project restarts.
+
+### Changed
+- The Open on your phone window says what to check when the phone shows
+  "This site can't be reached": the same WiFi, not mobile data, and on an
+  iPhone the browser's Local Network permission, which a browser update can
+  turn off.
+
+## 4.5.2 - 2026-10-24
+
+### Changed
+- When a project's server can't start because its port is taken - by a
+  leftover server, or one Benchdrop isn't allowed to stop - Benchdrop now starts
+  it again on the next free port (8174 taken: 8175) through the standard `PORT`
+  setting, and the banner says which port it moved to. Free it and retry still
+  stops the holder and goes back to the usual port. A server that doesn't read
+  `PORT` gets the old banner, which now says why it couldn't move.
+
+## 4.5.1 - 2026-10-18
+
+### Fixed
+- In a window narrower than full screen, the toolbar's buttons were cut off
+  (the address shrank to "ht" and Stop disappeared). The toolbar now fits more
+  in one row - the logo without the word, tighter buttons - and wraps onto a
+  second row when it has to. The program bar above a Windows program or an
+  Android app's screen wraps the same way.
+
+## 4.5.0 - 2026-10-17 (not published)
+
+### Added
+- Android apps on your own phone, from the Phone button: pair the phone over
+  Wi-Fi by scanning a QR code (Android 11 or later, Wireless debugging), then
+  run the app on it with its screen, log, crashes, Autotest and Claude - or
+  scan a second QR code to download the app and install it.
+
+## 4.4.0 - 2026-10-17 (not published)
+
+### Added
+- Android apps. Drop an Android Studio project folder or an `.apk`: Benchdrop
+  builds it with the project's Gradle wrapper, installs it on a phone or
+  emulator (starting the emulator if needed), starts it and shows the
+  device's screen in the pane, where clicks, drags, the wheel and typing work
+  the app. Its log, crashes (with the exception) and "not responding" go into
+  the log; Capture, Trace, Restart, Autotest and the Claude connector work on
+  it. Benchdrop finds the Android SDK, a JDK and the emulators itself, and
+  says what's missing rather than installing anything.
+- The Claude connector's run tool takes `device` (which phone or emulator)
+  and `build` (build the project first).
+
+### Fixed
+- The install no longer contains an unused update file (`app-update.yml`).
+
 ## 4.3.3 - 2026-10-05
 
 ### Fixed

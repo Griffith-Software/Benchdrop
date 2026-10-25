@@ -19,7 +19,7 @@ const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
-const VERSION = '4.3.3';
+const VERSION = '4.5.3';
 
 // The tools Claude sees. Benchdrop reads this same list, so the two can't drift.
 const TOOLS = [
@@ -27,7 +27,8 @@ const TOOLS = [
     name: 'benchdrop_open',
     description:
       'Open a project in Benchdrop, the same as dropping it on the window: a .zip, a folder, a single .html/.py/.md file, ' +
-      'a Windows program (.exe), a GitHub repository link, or a direct .zip link. Returns what Benchdrop detected and the ' +
+      'a Windows program (.exe), an Android app (.apk) or Android Studio project, a GitHub repository link, or a direct .zip link. ' +
+      'Returns what Benchdrop detected and the ' +
       'choices for running it (which scripts, which program, which entry file). Some projects start straight away.',
     inputSchema: {
       type: 'object',
@@ -39,7 +40,8 @@ const TOOLS = [
     name: 'benchdrop_run',
     description:
       'Run the project that is open, using the choices benchdrop_open returned. Leave a choice out to use Benchdrop\'s default ' +
-      '(the scripts it pre-selected, the first program, and so on). Waits until the app is showing or the program has a window, ' +
+      '(the scripts it pre-selected, the first program, the first phone or emulator, and so on). An Android app is built, installed ' +
+      'and started on the device (an emulator can take a minute or two to start). Waits until the app is showing or the program has a window, ' +
       'then returns the status.',
     inputSchema: {
       type: 'object',
@@ -50,6 +52,8 @@ const TOOLS = [
         entry: { type: 'string', description: 'Python: the script to run; mixed projects: the .html file to open, or "python"' },
         option: { type: 'string', description: 'Other runtimes (Go, Rust, .NET, Java, PHP, Ruby): the label of the run option' },
         install_requirements: { type: 'boolean', description: 'Python: pip install -r requirements.txt first' },
+        device: { type: 'string', description: 'Android: which phone or emulator (as benchdrop_open listed it, a serial such as emulator-5554, or an emulator name)' },
+        build: { type: 'boolean', description: 'Android projects: build with Gradle first (default true; false installs the last build)' },
       },
     },
   },

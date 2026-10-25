@@ -217,6 +217,31 @@
         </div>
       </section>
 
+      <section id="android-picker" class="hidden">
+        <div id="android-picker-inner">
+          <h2 id="android-picker-title">Android app detected</h2>
+          <p class="muted" id="android-picker-sub"></p>
+
+          <div id="android-tools"></div>
+
+          <label for="android-target">Run it on</label>
+          <select id="android-target"></select>
+          <p class="muted small" id="android-target-note"></p>
+
+          <label class="check" id="android-build-row"><input type="checkbox" id="android-build" checked /> Build it first <span class="muted">(Gradle assembleDebug)</span></label>
+
+          <p class="muted small native-note">Benchdrop installs the app on the phone or emulator, starts it and shows its
+          screen here: click, drag and type in the picture to use it. Its log, crashes and "not responding" go into the
+          log, and Autotest and Claude can test it.</p>
+
+          <div class="android-actions">
+            <button id="btn-run-android" class="primary">Run it</button>
+            <button id="btn-android-refresh">Refresh devices</button>
+            <button id="btn-android-pair" title="Pair a phone over Wi-Fi, or download the app to it">Phone…</button>
+          </div>
+        </div>
+      </section>
+
       <section id="runtime-picker" class="hidden">
         <div id="runtime-inner">
           <h2 id="runtime-title">Project detected</h2>
@@ -284,7 +309,38 @@
             <em>Advanced</em> and continue. HTTPS is what lets the page use
             location, camera and other features that a plain http address can't.</p>
           </div>
+          <p id="phone-unreachable" class="muted small"><strong>Says "This site can't be reached"?</strong>
+          Check the phone is on the same WiFi, not mobile data. On an iPhone, the browser also needs
+          <em>Local Network</em> permission (Settings, then the browser's name) - a browser update can turn it off.</p>
           <div id="phone-alts" class="muted small"></div>
+        </div>
+      </div>
+
+      <div id="android-phone-panel" class="hidden">
+        <div id="android-phone-inner">
+          <button id="btn-android-phone-close" title="Close">✕</button>
+          <h2>Put it on your phone</h2>
+          <p class="muted small">The phone needs to be on the same Wi-Fi network as this computer.</p>
+          <div class="android-phone-cols">
+            <div class="android-phone-col">
+              <h3>Run it on your phone</h3>
+              <img id="android-pair-qr" alt="QR code for pairing a phone with Benchdrop" />
+              <ol class="small">
+                <li>On the phone, turn on <strong>Developer options</strong> (Settings › About phone › tap Build number 7 times).</li>
+                <li>In Developer options, turn on <strong>Wireless debugging</strong>, open it and tap <strong>Pair device with QR code</strong>.</li>
+                <li>Scan this code. Android 11 or later.</li>
+              </ol>
+              <p id="android-pair-status" class="muted small">Waiting for the phone to scan the code…</p>
+              <button id="btn-android-run-phone" class="primary hidden">Run it on this phone</button>
+              <p class="muted small">Then it works like the emulator: its screen, log, crashes, Autotest and Claude.</p>
+            </div>
+            <div class="android-phone-col">
+              <h3>Just install it</h3>
+              <img id="android-apk-qr" alt="QR code for downloading the app" />
+              <div id="android-apk-url"></div>
+              <p id="android-apk-note" class="muted small">Scan to download the app, then open the file to install it. Android asks once to allow installing apps from your browser or files app. Benchdrop doesn't see the app run this way.</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -296,6 +352,9 @@
           </div>
           <span id="native-state" class="native-state">Starting</span>
           <div id="native-actions">
+            <button id="btn-android-back" class="hidden" title="Android's Back button">◁ Back</button>
+            <button id="btn-android-home" class="hidden" title="Android's Home button">○ Home</button>
+            <button id="btn-android-recents" class="hidden" title="Android's recent apps">▢ Recents</button>
             <button id="btn-native-front" title="Bring the program's own window to the front">Show window</button>
             <button id="btn-native-dock" title="Put the program's real window inside this pane">Dock here</button>
             <button id="btn-native-restart" title="Stop and start the program again">Restart</button>

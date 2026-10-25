@@ -9,7 +9,7 @@ It is a **universal runner**, not a better IDE. The point isn't to be the best
 tool for any one stack; it's to be the one tool that will run almost anything
 you hand it without setup.
 
-Current version: **4.3.3**. Windows 10 (22H2) or 11, x64.
+Current version: **4.5.3**. Windows 10 (22H2) or 11, x64.
 
 ---
 
@@ -57,6 +57,7 @@ It's most useful when you are:
 | **A single `.py`** | Run with a script picker and an arguments box |
 | **A `.md` file** | Rendered as a readable page |
 | **A Windows program (`.exe`)** | Run from where it sits, so the files beside it are found |
+| **An Android app** (a project folder or `.apk`) | Built, installed on a phone or emulator, started, and shown in the pane |
 | **A GitHub link** | `github.com/owner/repo`, or `.../tree/branch`, downloaded and opened |
 | **A direct `.zip` link** | Downloaded and opened |
 | **Recent list** | The last dozen projects, one click to reopen |
@@ -82,6 +83,7 @@ name — so "I updated it but I'm still seeing the old one" doesn't happen.
 | .NET | `.csproj`, `.sln` | `dotnet run` |
 | Java | `pom.xml`, `build.gradle`, `.jar` | Maven, Gradle, or `java -jar` |
 | Windows program | `.exe` | run directly, with its folder as the working directory |
+| Android app | Android Studio project, `.apk` | built with its Gradle wrapper, installed and started on a phone or emulator through adb |
 
 **Node.js is the only runtime Benchdrop installs for you.** If you don't have
 it, it downloads an official build once and keeps it. Every other language must
@@ -147,6 +149,20 @@ device:
 18:31:26 [net · iPhone 192.168.86.42] ← 200 /api/thing 86ms
 18:31:29 [app · iPhone 192.168.86.42] click button "Start"
 ```
+
+### Android apps
+
+The device's screen shows in the pane (Android screenshots, a few a second);
+clicks, drags, the wheel and typing are sent to the device as taps, swipes and
+keys, with Back, Home and Recents buttons above it. The log is the app's
+logcat (Info and above); crashes are caught with their exception and stack,
+and an ANR is reported as "not responding". Autotest and the Claude connector
+read the screen through UI Automator. The Phone button puts the app on a real
+phone: pair it over Wi-Fi from a QR code (then it runs there like on the
+emulator), or let the phone download the APK from another QR code. Benchdrop needs the Android SDK
+(Android Studio includes it) and, to build, a JDK; it finds both itself or
+lets you choose the folders, and never installs them. See the README's
+"Android apps" section.
 
 ### Windows programs
 

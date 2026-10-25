@@ -1,6 +1,6 @@
 {
   "name": "benchdrop",
-  "version": "4.3.3",
+  "version": "4.5.3",
   "description": "Drop in a project - a zip, a folder, a single page or script - and Benchdrop installs what it needs, runs it, and shows it in its own window.",
   "private": true,
   "main": "main.js",
@@ -37,6 +37,7 @@
   "build": {
     "appId": "software.griffith.benchdrop",
     "productName": "Benchdrop",
+    "publish": null,
     "asar": true,
     "directories": {
       "output": "dist"
@@ -44,6 +45,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "android.js",
       "renderer/**/*",
       "package.json",
       "!**/*.map"

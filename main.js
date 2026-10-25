@@ -38,12 +38,14 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const AdmZip = require('adm-zip');
 const treeKill = require('tree-kill');
+const { createAndroid, detectAndroidProject } = require('./android');
 
 let mainWindow;
 let runningProcs = []; // [{ id, name, child }]
 let runningStaticServer = null;
 let currentProjectDir = null;
 let currentScriptNames = [];
+let startRunId = 0; // bumped by each startProject, so an earlier run's timers stand down
 let currentZipPath = null;
 
 // ---------------------------------------------------------------------------
@@ -142,6 +144,21 @@ function sendStatus(status, extra = {}) {
     mainWindow.webContents.send('status', { status, ...extra });
   }
 }
+
+// Android apps (android.js): a build, an emulator and the app on the device.
+const android = createAndroid({
+  sendLog: (...a) => sendLog(...a),
+  sendStatus: (...a) => sendStatus(...a),
+  traceLog: (...a) => traceLog(...a),
+  readSettings: () => readSettings(),
+  writeSettings: (p) => writeSettings(p),
+  isRiskyLabel: (l, n) => isRiskyLabel(l, n),
+  recordIssue: (at, i) => recordIssue(at, i),
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  trackProc: (child, name) => { runningProcs.push({ id: `${name}-${child.pid}`, name, child }); sendProcs(); },
+  untrackProc: (child) => { runningProcs = runningProcs.filter((p) => p.child !== child); sendProcs(); },
+});
+let androidInfo = null;   // the Android project or APK that's open
 
 function sendProcs() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1428,6 +1445,11 @@ function newTestSession(driver, opts = {}) {
 // What there is to test right now: the native program if one is running,
 // otherwise the page in the app view.
 function testDriver(opts = {}) {
+  if (opts.native && typeof android !== 'undefined' && android.session) {
+    const a = android.session;
+    if (a.exited || !a.pid) return { message: 'The Android app is not running.' };
+    return { driver: android.makeDriver() };
+  }
   if (opts.native) {
     const s = nativeSession;
     if (!s || s.exited || !s.pid) return { message: 'No program is running to test.' };
@@ -1548,6 +1570,8 @@ app.whenReady().then(() => {
 // background taskkill, and the dev servers outlived Benchdrop.
 app.on('before-quit', () => {
   stopRunningApp({ wait: true });
+  android.phoneStop();
+  android.shutdown();   // an emulator Benchdrop started
   quitting = true;
   try { fs.rmSync(runningFile(), { force: true }); } catch (e) { /* ignore */ }
   stopConnector();
@@ -2206,13 +2230,18 @@ function prepareProjectFromPath(inputPath, { forceFresh = false } = {}) {
     };
   }
 
+  // An Android app package: installed on a phone or emulator from where it is.
+  if (/\.apk$/i.test(inputPath)) {
+    return { projectDir: path.dirname(inputPath), reused: false, updated: false, inPlace: true, apk: path.basename(inputPath) };
+  }
+
   if (SINGLE_FILE_TYPES.test(inputPath)) {
     return prepareFromSingleFile(inputPath);
   }
 
   throw new Error(
     `Benchdrop doesn't know what to do with "${path.basename(inputPath)}". ` +
-      'Drop a .zip, a folder, a program (.exe), or a single .html, .py or .md file — or paste a GitHub link.'
+      'Drop a .zip, a folder, a program (.exe), an Android app (.apk), or a single .html, .py or .md file — or paste a GitHub link.'
   );
 }
 
@@ -2442,6 +2471,10 @@ function detectProject(projectDir) {
       setupNotes,
     };
   }
+  // An Android app is a Gradle project too: check it before Java claims it.
+  const androidApp = detectAndroidProject(projectDir);
+  if (androidApp) return androidApp;
+
   const htmlEntries = findHtmlEntries(projectDir);
   const py = detectPythonProject(projectDir);
 
@@ -2653,6 +2686,26 @@ function portIsFree(port) {
     srv.once('error', () => resolve(false));
     srv.listen(port, '127.0.0.1', () => srv.close(() => resolve(true)));
   });
+}
+
+// A port nobody listens on at all, on any address: a server holding
+// 0.0.0.0 or :: doesn't always stop a bind to 127.0.0.1, so try both.
+function portIsFreeEverywhere(port) {
+  const tryBind = (host) => new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', () => resolve(false));
+    srv.listen({ port, host, exclusive: true }, () => srv.close(() => resolve(true)));
+  });
+  return tryBind('127.0.0.1').then((ok) => ok && tryBind(undefined));
+}
+
+// The first free port after a busy one, so a moved app keeps a familiar
+// address (8174 busy -> 8175). Falls back to any free port.
+async function findFreePortAfter(busy) {
+  for (let p = busy + 1; p <= Math.min(busy + 40, 65535); p++) {
+    if (await portIsFreeEverywhere(p)) return p;
+  }
+  return getFreePort();
 }
 
 // Resolve the port to serve on: the fixed one when enabled and available,
@@ -3416,7 +3469,10 @@ function stopRunningApp(opts = {}) {
   stopWatching();
   stopPhonePreview();
   stopNativeProgram({ wait: opts.wait });
+  if (typeof android !== 'undefined') android.stop({ wait: opts.wait }).catch(() => {});
   for (const p of runningProcs) {
+    p.stopped = true; // so a port clash it reported doesn't restart it
+    clearTimeout(p.portTimer);
     if (p.child && p.child.pid) killTree(p.child.pid, opts.wait);
   }
   runningProcs = [];
@@ -3471,6 +3527,7 @@ function runNpmInstall(nodeExe, projectDir) {
 
 async function startProject(projectDir, scriptNames, opts = {}) {
   const healAttempted = !!opts.healAttempted;
+  const runId = ++startRunId;
   currentProjectDir = projectDir;
   currentScriptNames = scriptNames;
 
@@ -3511,7 +3568,11 @@ async function startProject(projectDir, scriptNames, opts = {}) {
     sendLog(`\n$ npm run ${scriptName}\n`);
     const child = spawn(nodeExe, [npmCliPath(), 'run', scriptName], {
       cwd: projectDir,
-      env: childEnv(nodeExe, { BROWSER: 'none', CI: 'false', NO_COLOR: '1', FORCE_COLOR: '0' }),
+      env: childEnv(nodeExe, {
+        BROWSER: 'none', CI: 'false', NO_COLOR: '1', FORCE_COLOR: '0',
+        // A port moved after a clash goes only to the script that clashed.
+        ...(opts.port && opts.portFor === scriptName ? { PORT: String(opts.port) } : {}),
+      }),
       windowsHide: true,
     });
 
@@ -3561,9 +3622,22 @@ async function startProject(projectDir, scriptNames, opts = {}) {
       const busyPort = findPortConflict(text);
       if (busyPort && !reportedPorts.has(busyPort)) {
         reportedPorts.add(busyPort);
-        findPidsOnPort(busyPort).then((pids) => {
-          sendStatus('port-conflict', { port: busyPort, pids, script: scriptName, moved: /trying another/i.test(text) });
+        const moved = /trying another/i.test(text);
+        const report = () => findPidsOnPort(busyPort).then((pids) => {
+          sendStatus('port-conflict', {
+            port: busyPort, pids, script: scriptName, moved,
+            ignoredPort: opts.port && opts.portFor === scriptName ? opts.port : null,
+          });
         });
+        if (moved || opts.portFor) {
+          report();
+        } else {
+          // The script gave up on a busy port. If it exits, start it again
+          // on a free one (most servers read PORT); if it stays up, it is
+          // waiting or retrying, so just show the banner.
+          entry.portConflict = busyPort;
+          entry.portTimer = setTimeout(() => { entry.portConflict = null; report(); }, 4000);
+        }
       }
     };
 
@@ -3575,6 +3649,19 @@ async function startProject(projectDir, scriptNames, opts = {}) {
       runningProcs = runningProcs.filter((p) => p.id !== entry.id);
       sendProcs();
       sendLog(`\n[Benchdrop] "${scriptName}" exited (code ${code}).\n`, scriptName);
+
+      if (entry.portConflict && !entry.stopped && !urlSent && !healing) {
+        clearTimeout(entry.portTimer);
+        const busy = entry.portConflict;
+        healing = true;
+        Promise.all([findFreePortAfter(busy), findPidsOnPort(busy)]).then(([port, pids]) => {
+          if (currentProjectDir !== projectDir) return;
+          sendLog(`\n[Benchdrop] Port ${busy} is taken, so "${scriptName}" is starting again on port ${port}.\n`);
+          sendStatus('port-conflict', { port: busy, pids, script: scriptName, moved: true, newPort: port });
+          startProject(projectDir, scriptNames, { skipInstall: true, healAttempted, port, portFor: scriptName });
+        });
+        return;
+      }
 
       if (!healAttempted && !healing && !urlSent && NATIVE_BINDING_FAILURE_RE.test(entry.buffer)) {
         healing = true;
@@ -3595,7 +3682,7 @@ async function startProject(projectDir, scriptNames, opts = {}) {
   }
 
   setTimeout(() => {
-    if (!urlSent && runningProcs.length) {
+    if (runId === startRunId && !urlSent && runningProcs.length) {
       sendLog('\n[Benchdrop] Still waiting for a local URL to appear in the output...\n');
       sendStatus('stalled');
     }
@@ -3796,6 +3883,7 @@ ipcMain.handle('pick-zip', async (_e, opts = {}) => {
 
 async function loadProjectFromPath(zipPath, forceFresh) {
   stopRunningApp();
+  android.phoneStop();   // the Phone panel belongs to the project that was open
   currentZipPath = zipPath;
 
   let isDir = false;
@@ -3824,7 +3912,9 @@ async function loadProjectFromPath(zipPath, forceFresh) {
   const { projectDir, reused, updated } = prepared;
   const info = prepared.exe
     ? { type: 'native', name: prepared.exe.replace(/\.exe$/i, ''), exes: [prepared.exe], preselect: prepared.exe }
-    : detectProject(projectDir);
+    : prepared.apk
+      ? { type: 'android', name: prepared.apk.replace(/\.apk$/i, ''), apk: prepared.apk }
+      : detectProject(projectDir);
   currentProjectType = info.type;
   currentProjectDir = projectDir;
   sendLog(`Project folder: ${projectDir}\n`);
@@ -3860,6 +3950,16 @@ async function loadProjectFromPath(zipPath, forceFresh) {
 
   if (info.type === 'node') {
     return { ok: true, info, projectDir, reused, updated, needsScriptChoice: true };
+  }
+
+  if (info.type === 'android') {
+    androidInfo = info;
+    Object.assign(info, await androidPickerInfo(projectDir));
+    sendLog(info.apk
+      ? `[Benchdrop] Android app package ${info.apk}.\n`
+      : `[Benchdrop] Android app project (module ${info.module || 'root'}${info.applicationId ? `, ${info.applicationId}` : ''}).\n`);
+    for (const line of info.toolNotes) sendLog(`[Benchdrop] ${line}\n`);
+    return { ok: true, info, projectDir, reused, updated, needsAndroidChoice: true };
   }
 
   if (info.type === 'native') {
@@ -5224,10 +5324,11 @@ async function captureNativeImage(s) {
 }
 
 ipcMain.handle('native-capture', async (_e, { rect } = {}) => {
-  const s = nativeSession;
+  const a = android.session;
+  const s = a ? { exe: a.label } : nativeSession;
   try {
-    let img = await captureNativeImage(s);
-    let note = `${s.exe} window`;
+    let img = a ? await androidImage() : await captureNativeImage(s);
+    let note = a ? `${a.label} on ${a.device}` : `${s.exe} window`;
     if (rect) {
       const sz = img.getSize();
       const r = {
@@ -5268,7 +5369,7 @@ ipcMain.handle('native-capture', async (_e, { rect } = {}) => {
 // One frame of the window, for picking a region or as a fallback live view.
 ipcMain.handle('native-frame', async () => {
   try {
-    const img = await captureNativeImage(nativeSession);
+    const img = android.session ? await androidImage() : await captureNativeImage(nativeSession);
     const sz = img.getSize();
     return { dataUrl: img.toDataURL(), width: sz.width, height: sz.height };
   } catch (e) {
@@ -5278,6 +5379,7 @@ ipcMain.handle('native-frame', async () => {
 
 // The id the page needs to show a live view of the window.
 ipcMain.handle('native-source', async () => {
+  if (android.session) return null;   // the device's screen comes from screencap frames
   const s = nativeSession;
   if (!s || !s.primaryHwnd || s.exited) return null;
   try {
@@ -5341,6 +5443,15 @@ ipcMain.handle('native-move', async (_e, { bounds }) => {
 });
 
 ipcMain.handle('native-show', async (_e, { visible, front }) => {
+  if (android.session) {
+    const hwnd = await androidEmulatorWindow();
+    if (!hwnd) {
+      sendLog("[Benchdrop] There's no emulator window to show - the app is on a phone, or the emulator runs without a window.\n");
+      return false;
+    }
+    await winHelper.call('show', { hwnd, visible: true, front: true }, 4000).catch(() => {});
+    return true;
+  }
   const s = nativeSession;
   if (!s || !s.primaryHwnd) return false;
   await winHelper.call('show', { hwnd: s.primaryHwnd, visible: !!visible, front: !!front }, 4000).catch(() => {});
@@ -5356,12 +5467,125 @@ ipcMain.handle('native-undock', async () => {
   return true;
 });
 
-ipcMain.handle('native-restart', async () => restartNativeProgram());
+ipcMain.handle('native-restart', async () => {
+  if (android.session) {
+    try { return await android.restart(); } catch (err) { sendStatus('error', { message: `Couldn't restart the app: ${err.message}` }); return false; }
+  }
+  return restartNativeProgram();
+});
 
 ipcMain.handle('run-native', async (_e, { projectDir, exe, args }) => {
   await startNativeProgram(projectDir, exe, args || '');
   return true;
 });
+
+// --- Android ----------------------------------------------------------------------
+// What the Android panel shows: the tools found (or missing) and what the app
+// can run on.
+async function androidPickerInfo(projectDir) {
+  const { tools: t, targets } = await android.targets(projectDir);
+  const notes = [];
+  if (!t.sdk) notes.push("The Android SDK wasn't found. Install Android Studio (it includes the SDK), or choose an SDK folder in the Android panel.");
+  else notes.push(`Android SDK: ${t.sdk} (from ${t.sdkFrom}).`);
+  if (androidInfo && !androidInfo.apk) {
+    notes.push(t.jdk ? `JDK for building: ${t.jdk} (from ${t.jdkFrom}).` : "No JDK was found for building it. Android Studio includes one, or choose a JDK folder in the Android panel.");
+  }
+  if (t.sdk && !targets.length) notes.push('No phone or emulator is connected, and no emulators were found to start.');
+  return {
+    tools: { sdk: t.sdk, jdk: t.jdk, avdHome: t.avdHome, emulator: !!t.emulator },
+    targets,
+    toolNotes: notes,
+    studioUrl: android.studioUrl,
+  };
+}
+
+ipcMain.handle('android-targets', async (_e, { projectDir }) => androidPickerInfo(projectDir));
+
+// Point Benchdrop at an SDK, a JDK or an emulator folder it couldn't find.
+ipcMain.handle('android-locate', async (_e, { what, projectDir }) => {
+  const titles = { sdk: 'Choose the Android SDK folder', jdk: 'Choose a JDK folder (it has bin\\java.exe)', avd: 'Choose the folder with your emulators (.ini files)' };
+  const r = await dialog.showOpenDialog(mainWindow, { title: titles[what] || 'Choose a folder', properties: ['openDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return { ok: false };
+  const dir = r.filePaths[0];
+  const valid = what === 'sdk' ? android.isSdk(dir) : what === 'jdk' ? android.isJdk(dir)
+    : (() => { try { return fs.readdirSync(dir).some((f) => /\.ini$/i.test(f)); } catch (e) { return false; } })();
+  if (!valid) {
+    return { ok: false, message: what === 'sdk' ? "That folder isn't an Android SDK (there's no platform-tools\\adb.exe in it)."
+      : what === 'jdk' ? "That folder isn't a JDK (there's no bin\\java.exe in it)." : 'There are no emulators (.ini files) in that folder.' };
+  }
+  writeSettings({ [what === 'sdk' ? 'androidSdk' : what === 'jdk' ? 'javaHome' : 'androidAvdHome']: dir });
+  sendLog(`[Benchdrop] Using ${dir} for the Android ${what === 'sdk' ? 'SDK' : what === 'jdk' ? 'JDK' : 'emulators'} from now on.\n`);
+  return { ok: true, info: await androidPickerInfo(projectDir) };
+});
+
+ipcMain.handle('run-android', async (_e, { projectDir, target, build }) => {
+  stopRunningApp();
+  const info = androidInfo || detectProject(projectDir);
+  currentProjectDir = projectDir;
+  try {
+    const s = await android.runApp({ projectDir, info, target, build: build !== false });
+    if (s) sendLog(`[Benchdrop] ${s.label} is running on ${s.device}. Click, drag and type in the picture to use it; Back, Home and Recents are above it.\n`);
+    return { ok: !!s };
+  } catch (err) {
+    await android.stop();
+    sendStatus('error', { message: `Couldn't run the Android app: ${err.message}` });
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('android-input', async (_e, ev) => android.input(ev));
+
+// The Phone panel for an Android app: a QR code to pair a phone over Wi-Fi,
+// and one to download the APK.
+ipcMain.handle('android-phone', async (_e, { projectDir }) => {
+  try {
+    const base = androidInfo || detectProject(projectDir);
+    // The download is named after the app ("Try a Job") once it has run.
+    const info = { ...base, name: (android.session && android.session.label) || base.name };
+    const lan = getLanAddresses();
+    const r = await android.phoneStart({ projectDir, info, lan });
+    const qr = (txt) => QRCode.toDataURL(txt, { width: 300, margin: 1, color: { dark: '#0f1115', light: '#ffffff' } });
+    r.pairQr = await qr(r.pairText);
+    if (r.apkUrl) {
+      r.apkQr = await qr(r.apkUrl);
+      sendLog(`[Benchdrop] ${r.apkName} can be downloaded on this Wi-Fi network at ${r.apkUrl} while the Phone panel is open.\n`);
+    }
+    r.network = lan.length ? lan[0].name : null;
+    return { ok: true, ...r };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.handle('android-phone-stop', async () => {
+  android.phoneStop();
+  return true;
+});
+
+ipcMain.handle('android-studio-page', async () => shell.openExternal(android.studioUrl));
+
+async function androidImage() {
+  const png = await android.frame();
+  if (!png) throw new Error("couldn't get a picture from the device");
+  return nativeImage.createFromBuffer(png);
+}
+
+// The emulator's own window, to bring it forward (an emulator Benchdrop
+// started, or one already running).
+async function androidEmulatorWindow() {
+  let pid = android.emulatorPid();
+  if (!pid && IS_WIN) {
+    try {
+      const out = require('child_process').execFileSync('tasklist', ['/fi', 'IMAGENAME eq qemu-system-x86_64.exe', '/fo', 'csv', '/nh'], { windowsHide: true }).toString();
+      const m = /"qemu-system-x86_64\.exe","(\d+)"/i.exec(out);
+      if (m) pid = Number(m[1]);
+    } catch (e) { /* none */ }
+  }
+  if (!pid) return null;
+  const r = await winMonitor.call('info', { pid }, 8000).catch(() => null);
+  const wins = ((r && r.windows) || []).filter((w) => w.w > 200 && w.h > 200);
+  return wins.length ? wins[0].hwnd : null;
+}
 
 // A quick health check of the Windows-specific parts, runnable from the Help
 // menu - so if something doesn't work on a given machine, the log says which
@@ -5469,6 +5693,10 @@ const toolText = (t) => ({ content: [{ type: 'text', text: t }] });
 const toolRefusal = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
 
 async function currentTestDriver() {
+  if (android.session && !android.session.exited && android.session.pid) {
+    const r = testDriver({ native: true });
+    if (r.driver) return r;
+  }
   const s = nativeSession;
   if (s && !s.exited && s.pid) {
     const r = testDriver({ native: true });
@@ -5492,6 +5720,10 @@ function describePicker(p) {
     case 'runtime':
       return `${p.runtime} project${p.available ? '' : ` — ${p.runtime} is NOT installed on this computer, so it can't run until the person installs it`}. ` +
         `Run options (benchdrop_run "option"): ${p.options.map((o) => `"${o}"`).join(', ')}.`;
+    case 'android':
+      return `Android app${p.apk ? ` (${p.apk})` : ' project'}${p.sdk ? '' : " - the Android SDK is NOT installed on this computer, so it can't run until the person installs Android Studio"}. ` +
+        (p.targets.length ? `Devices (benchdrop_run "device"): ${p.targets.map((t) => `"${t}"`).join(', ')}. Default: ${p.targets[0]}.` : 'No phone or emulator is available.') +
+        (p.apk ? '' : ` It's built with Gradle first (benchdrop_run "build": false to skip).`);
     case 'python':
       return `Python ${p.available ? '' : '(NOT installed on this computer) '}— scripts (benchdrop_run "entry"): ${p.entries.join(', ')}` +
         `${p.hasRequirements ? '; it has requirements.txt (install_requirements)' : ''}.`;
@@ -5506,6 +5738,9 @@ function describeState(st) {
   if (st.picker) {
     L.push(`Project: ${st.project || '(open)'} — ready to run.`);
     L.push(describePicker(st.picker));
+  } else if (android.session && st.native) {
+    const a = android.session;
+    L.push(`Android app: ${a.label} (${a.pkg}) on ${a.device} — ${a.exited ? (a.crash ? 'crashed' : 'not running') : `running, process ${a.pid}`}${a.top ? `, showing ${a.top.replace(/^\./, '')}` : ''}.`);
   } else if (s && st.native) {
     L.push(`Program: ${s.exe} (process ${s.pid}) — ${s.exited ? 'exited' : s.responding === false ? 'NOT RESPONDING' : 'running'}` +
       `${s.docked ? ', docked in the pane' : ''}.`);
@@ -5551,7 +5786,7 @@ const TOOL_HANDLERS = {
   async benchdrop_run(args) {
     const st0 = await askRenderer('state');
     if (!st0.picker) {
-      return toolRefusal(st0.url || (nativeSession && !nativeSession.exited)
+      return toolRefusal(st0.url || (nativeSession && !nativeSession.exited) || (android.session && !android.session.exited)
         ? 'It is already running. Use benchdrop_stop first to run it differently.'
         : 'Open a project first (benchdrop_open).');
     }
@@ -5566,9 +5801,10 @@ const TOOL_HANDLERS = {
       await sleep(1000);
       st = await askRenderer('state');
       const s = nativeSession;
-      if (st.url || (s && (s.primaryHwnd || s.exited)) || st.settled) break;
+      const a = android.session;
+      if (st.url || (s && (s.primaryHwnd || s.exited)) || (a && (a.pid || a.exited)) || st.settled) break;
     }
-    const showing = st.url || (nativeSession && nativeSession.primaryHwnd);
+    const showing = st.url || (nativeSession && nativeSession.primaryHwnd) || (android.session && android.session.pid);
     return toolText(describeState(st) + (showing ? '' : '\nIt has not shown anything yet — check benchdrop_log for what it is doing.'));
   },
 

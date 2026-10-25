@@ -6,7 +6,7 @@ Drop in a project — a zip, a folder, a single file, a link, or a Windows
 program — and Benchdrop works out what it is, installs what it needs, runs it,
 and shows it in its own window, with a full record of what happened.
 
-Version 4.3.3 · Windows 10 (22H2) or 11, x64
+Version 4.5.3 · Windows 10 (22H2) or 11, x64
 
 ---
 
@@ -35,6 +35,7 @@ will run almost anything you hand it without preparation.
 | **A .zip** | Unpacked into its own folder and run |
 | **A folder** | Used where it sits, so edits in your own editor apply directly |
 | **A Windows program (.exe)** | Run from where it sits, so the files beside it are found |
+| **An Android app** (a project folder or `.apk`) | Built, installed on a phone or emulator, started, and shown in the pane |
 | **A single .html file** | Served on its own — ideal for single-file apps |
 | **A single .py script** | Run, with a script picker and an arguments box |
 | **A .md file** | Rendered as a readable page |
@@ -64,6 +65,7 @@ on its first run. It compares the file's contents rather than its name, so
 | .NET | `.csproj`, `.sln` | `dotnet run` |
 | Java | `pom.xml`, `build.gradle`, `.jar` | Maven, Gradle, or `java -jar` |
 | Windows program | `.exe` | run directly, with its own folder as the working directory |
+| Android app | Android Studio project, `.apk` | built with its Gradle wrapper, installed and started on a phone or emulator through adb |
 
 Node.js is fetched automatically if the machine doesn't have it. Other
 languages use what's already installed; if one is missing, Benchdrop says so
