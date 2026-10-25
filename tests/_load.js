@@ -12,8 +12,10 @@ const path = require('path');
 
 const MAIN = path.join(__dirname, '..', 'main.js');
 
+// Line endings are normalised: a Windows checkout (core.autocrlf, as on the
+// GitHub runner) gives CRLF, and the slice markers are written with \n.
 function source() {
-  return fs.readFileSync(MAIN, 'utf8');
+  return fs.readFileSync(MAIN, 'utf8').replace(/\r\n/g, '\n');
 }
 
 // The text of one top-level function declaration, braces balanced.
