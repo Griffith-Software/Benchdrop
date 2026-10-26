@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // Android apps: build, install, run and test them on an emulator or a phone.
 //
 // Everything goes through the Android SDK's own tools - adb for the device,

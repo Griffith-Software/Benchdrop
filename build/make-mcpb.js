@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // Builds mcp/benchdrop.mcpb: the Claude Desktop extension for the Claude
 // connector. It's a zip of a manifest and mcp/benchdrop-mcp.js, which Claude
 // Desktop runs with its own Node. The tool list comes from that script, so
@@ -33,8 +33,8 @@ const manifest = {
     'screenshots, read the log and run Autotest. Benchdrop must be installed. It refuses anything that looks ' +
     'destructive, never types into password fields for Claude, never follows links out of the app, and shows every ' +
     'action in its log.',
-  author: { name: pkg.author || 'Benchdrop' },
-  license: pkg.license,
+  author: { name: (pkg.author && pkg.author.name) || 'Benchdrop' },
+  license: 'Apache-2.0 with the Commons Clause (see LICENSE)',
   icon: 'icon.png',
   server: {
     type: 'node',
@@ -49,6 +49,9 @@ const zip = new AdmZip();
 zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
 zip.addLocalFile(serverFile, 'server');
 zip.addLocalFile(path.join(__dirname, 'icon.png'));
+// The license and NOTICE travel with the copy of the script inside the extension.
+zip.addLocalFile(path.join(root, 'LICENSE'));
+zip.addLocalFile(path.join(root, 'NOTICE'));
 const out = path.join(root, 'mcp', 'benchdrop.mcpb');
 zip.writeZip(out);
 console.log(`wrote ${path.relative(root, out)} (${TOOLS.length} tools, v${pkg.version})`);

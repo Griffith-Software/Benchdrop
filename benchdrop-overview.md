@@ -9,7 +9,7 @@ It is a **universal runner**, not a better IDE. The point isn't to be the best
 tool for any one stack; it's to be the one tool that will run almost anything
 you hand it without setup.
 
-Current version: **4.5.3**. Windows 10 (22H2) or 11, x64.
+Current version: **4.5.4**. Windows 10 (22H2) or 11, x64.
 
 ---
 

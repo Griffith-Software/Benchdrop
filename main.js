@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // main.js — Benchdrop
 //
 // Drop in a zipped web-app project; Benchdrop unpacks it, installs its
@@ -730,9 +730,9 @@ function applyTheme(theme) {
 // version comes from package.json through app.getVersion().
 const BRAND = {
   name: 'Benchdrop',
-  notice: '© 2026 Griffith.Software',
+  notice: '© 2026 Richard Griffith (d/b/a Griffith Software)',
   website: 'https://griffith.software',
-  license: 'MIT License',
+  license: 'Apache License 2.0 with the Commons Clause: free to use, modify and share, not to sell'
 };
 
 function aboutLine() {

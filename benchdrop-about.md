@@ -6,7 +6,7 @@ Drop in a project — a zip, a folder, a single file, a link, or a Windows
 program — and Benchdrop works out what it is, installs what it needs, runs it,
 and shows it in its own window, with a full record of what happened.
 
-Version 4.5.3 · Windows 10 (22H2) or 11, x64
+Version 4.5.4 · Windows 10 (22H2) or 11, x64
 
 ---
 
@@ -218,4 +218,4 @@ Claude needs Claude Desktop or Claude Code and a Claude account.
 Benchdrop is an independent project. It is not made by, endorsed by, or
 affiliated with Anthropic, and the Claude name belongs to its owner.
 
-© 2026 Griffith.Software · https://griffith.software
+© 2026 Richard Griffith (d/b/a Griffith Software) · https://griffith.software

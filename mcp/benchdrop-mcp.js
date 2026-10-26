@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // Benchdrop's Claude connector: an MCP server that Claude Desktop or Claude
 // Code starts, speaking MCP over stdio. It holds no logic of its own - each
 // tool call is passed to the running Benchdrop, which does the work and
@@ -19,7 +19,7 @@ const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
-const VERSION = '4.5.3';
+const VERSION = '4.5.4';
 
 // The tools Claude sees. Benchdrop reads this same list, so the two can't drift.
 const TOOLS = [

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 //
 // Finishes Benchdrop.exe's version resource. This is NOT a signing step -
 // Benchdrop releases are unsigned (see RELEASE.md). electron-builder runs the

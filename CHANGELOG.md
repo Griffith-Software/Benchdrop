@@ -3,6 +3,13 @@
 All notable changes to Benchdrop. Versions follow semantic versioning.
 History before 4.1.2 was not recorded in this form.
 
+## 4.5.4 - 2026-10-26
+
+### Changed
+- License change: from this version, Benchdrop is licensed under Apache
+  License 2.0 with the Commons Clause (source-available: free to use, modify
+  and share, not to sell). Versions 4.5.3 and earlier remain under MIT.
+
 ## 4.5.3 - 2026-10-24
 
 ### Fixed

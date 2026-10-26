@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // Plain-node tests for the decision-making parts of Benchdrop: what it
 // recognises, what it refuses, and how it describes things. No Electron, no
 // window - run with `npm run test:unit`.

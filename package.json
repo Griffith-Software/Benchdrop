@@ -1,6 +1,6 @@
 {
   "name": "benchdrop",
-  "version": "4.5.3",
+  "version": "4.5.4",
   "description": "Drop in a project - a zip, a folder, a single page or script - and Benchdrop installs what it needs, runs it, and shows it in its own window.",
   "private": true,
   "main": "main.js",
@@ -49,6 +49,11 @@
       "renderer/**/*",
       "package.json",
       "!**/*.map"
+    ],
+    "extraFiles": [
+      "LICENSE",
+      "NOTICE",
+      "THIRD_PARTY_NOTICES.md"
     ],
     "extraResources": [
       {
@@ -103,9 +108,9 @@
       "artifactName": "${productName}_v${version}_win-x64_setup.${ext}",
       "uninstallDisplayName": "${productName}"
     },
-    "copyright": "Copyright (c) 2026 Griffith.Software",
+    "copyright": "Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software)",
     "buildNumber": "0"
   },
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://griffith.software/benchdrop.html"
 }

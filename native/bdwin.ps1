@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Griffith.Software - https://griffith.software
+# SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+# Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) - https://griffith.software
 # bdwin.ps1 - Benchdrop's Windows helper.
 #
 # Benchdrop's testing features were built for web pages, where the DOM says

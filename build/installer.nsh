@@ -1,5 +1,5 @@
-; SPDX-License-Identifier: MIT
-; Copyright (c) 2026 Griffith.Software — https://griffith.software
+; SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+; Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 ; Benchdrop's additions to the electron-builder NSIS installer.
 ;
 ; Close Benchdrop automatically before installing, updating or uninstalling,

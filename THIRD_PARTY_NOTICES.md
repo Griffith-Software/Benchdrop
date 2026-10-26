@@ -1,6 +1,6 @@
 # Third-party notices
 
-Benchdrop 4.5.3 is © 2026 Griffith.Software and MIT licensed (see `LICENSE`).
+Benchdrop 4.5.4 is © 2026 Richard Griffith (d/b/a Griffith Software) and licensed under the Apache License 2.0 with the Commons Clause (see `LICENSE` and `NOTICE`).
 It ships the following third-party software. Each package's own license file
 is shipped with it, at the path given. No GPL or other copyleft code is
 shipped.

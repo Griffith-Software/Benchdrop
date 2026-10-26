@@ -46,4 +46,7 @@ Inside it, release\v{VERSION}\ holds this release's audit, release manifest
 (RELEASE.md, with test results), checksums, privacy policy and the drafts for
 the website.
 
-Benchdrop is MIT licensed. (c) 2026 Griffith.Software - https://griffith.software
+Benchdrop is licensed under the Apache License 2.0 with the Commons Clause:
+free to use, modify and share, not to sell (see LICENSE and NOTICE in the
+source zip). Versions 4.5.3 and earlier were released under MIT.
+(c) 2026 Richard Griffith (d/b/a Griffith Software) - https://griffith.software

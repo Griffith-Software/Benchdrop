@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Griffith.Software — https://griffith.software
+// SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause
+// Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) — https://griffith.software
 // main.js is one file that runs inside Electron, so its internals can't be
 // required directly. These helpers lift named pieces out of it and evaluate
 // them with stand-ins for the Electron bits, which lets the real shipping

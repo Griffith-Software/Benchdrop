@@ -1,5 +1,5 @@
-<!-- SPDX-License-Identifier: MIT -->
-<!-- Copyright (c) 2026 Griffith.Software - https://griffith.software -->
+<!-- SPDX-License-Identifier: LicenseRef-Apache-2.0-with-Commons-Clause -->
+<!-- Copyright (c) 2026 Richard Griffith (d/b/a Griffith Software) - https://griffith.software -->
 <!-- Benchdrop icon, square master (the same shapes as build/make-icon.js). -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" fill="#2C1E14"/>

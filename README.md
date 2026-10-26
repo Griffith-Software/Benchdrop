@@ -403,9 +403,9 @@ result, but never handles your credentials.
 
 ## Installing it
 
-Download `Benchdrop_v4.5.3_win-x64_setup.exe` from the [releases page](https://github.com/Griffith-Software/Benchdrop/releases).
+Download `Benchdrop_v4.5.4_win-x64_setup.exe` from the [releases page](https://github.com/Griffith-Software/Benchdrop/releases).
 
-Run `Benchdrop_v4.5.3_win-x64_setup.exe` and follow the installer. It installs
+Run `Benchdrop_v4.5.4_win-x64_setup.exe` and follow the installer. It installs
 for you only, in `%LOCALAPPDATA%\Programs\Benchdrop`, with no administrator
 prompt. It shows the license, adds a Start menu shortcut, and offers a desktop
 shortcut on its last page (unticked). If Benchdrop is running, the installer
@@ -413,7 +413,7 @@ closes it first.
 
 Silent install and uninstall (exit code 0 when they succeed):
 
-    Benchdrop_v4.5.3_win-x64_setup.exe /S
+    Benchdrop_v4.5.4_win-x64_setup.exe /S
     "%LOCALAPPDATA%\Programs\Benchdrop\Uninstall Benchdrop.exe" /currentuser /S
 
 Uninstalling from Settings → Installed apps asks whether to also delete
@@ -423,7 +423,7 @@ uninstall always keeps it.
 
 To check a download, compare its SHA-256 with the published value:
 
-    Get-FileHash .\Benchdrop_v4.5.3_win-x64_setup.exe -Algorithm SHA256
+    Get-FileHash .\Benchdrop_v4.5.4_win-x64_setup.exe -Algorithm SHA256
 
 Windows may show "Windows protected your PC" when you first run a new release,
 because Windows has not yet seen enough downloads of it. Check that the SHA-256
@@ -610,12 +610,18 @@ happy everything came across:
 
 ## License
 
-MIT — see `LICENSE`. Benchdrop is free and provided as is, with no promise of
-support, fixes or new features. Support and feedback:
+From version 4.5.4, Benchdrop is source-available under the Apache License 2.0
+with the Commons Clause: you may use, modify and share it free of charge, but
+you may not sell it. Versions 4.5.3 and earlier were released under the MIT
+License and stay under it for anyone who got them. See `LICENSE` for the terms
+and `NOTICE` for the copyright and trademark notice; third-party components
+are listed in `THIRD_PARTY_NOTICES.md` under their own licenses.
+
+Benchdrop is provided as is, with no promise of support, fixes or new features. Support and feedback:
 https://griffith.software/feedback.html. Source: https://github.com/Griffith-Software/Benchdrop
 
 Benchdrop is an independent project. It is not made by, endorsed by, or
 affiliated with Anthropic, GitHub, the OpenJS Foundation (Node.js) or
 Microsoft, and those names belong to their owners.
 
-© 2026 Griffith.Software · https://griffith.software
+© 2026 Richard Griffith (d/b/a Griffith Software) · https://griffith.software
